@@ -129,21 +129,22 @@ interface BodyProfile {
   elder: boolean;
 }
 
-// Cute-anime proportions: a readable ~3.3-head adult (bigger-headed kids, an
-// extra-cute baby). Nice and expressive — not deformed-chibi, not stiff-realistic.
+// "Life is a Game"-style realistic proportions: ~5.5-head adults with normal
+// bodies and small clean faces; kids are stockier with bigger heads; the
+// newborn is a special tiny baby. Proportions mature gradually with age.
 const STAGE_PROFILES: BodyProfile[] = [
   { heightPx: 50, headRatio: 0.46, chub: 1.0, baby: true, child: true, elder: false }, // newborn
-  { heightPx: 60, headRatio: 0.42, chub: 0.5, baby: false, child: true, elder: false }, // toddler
-  { heightPx: 70, headRatio: 0.385, chub: 0.42, baby: false, child: true, elder: false }, // early
-  { heightPx: 78, headRatio: 0.355, chub: 0.34, baby: false, child: true, elder: false }, // elementary
-  { heightPx: 86, headRatio: 0.335, chub: 0.27, baby: false, child: false, elder: false }, // middle
-  { heightPx: 92, headRatio: 0.315, chub: 0.22, baby: false, child: false, elder: false }, // high
-  { heightPx: 98, headRatio: 0.305, chub: 0.18, baby: false, child: false, elder: false }, // university
-  { heightPx: 102, headRatio: 0.3, chub: 0.17, baby: false, child: false, elder: false }, // career
-  { heightPx: 102, headRatio: 0.3, chub: 0.2, baby: false, child: false, elder: false }, // marriage
-  { heightPx: 100, headRatio: 0.305, chub: 0.26, baby: false, child: false, elder: false }, // midlife
-  { heightPx: 96, headRatio: 0.315, chub: 0.32, baby: false, child: false, elder: true }, // senior
-  { heightPx: 92, headRatio: 0.325, chub: 0.34, baby: false, child: false, elder: true }, // retirement
+  { heightPx: 62, headRatio: 0.36, chub: 0.45, baby: false, child: true, elder: false }, // toddler
+  { heightPx: 73, headRatio: 0.32, chub: 0.36, baby: false, child: true, elder: false }, // early
+  { heightPx: 84, headRatio: 0.285, chub: 0.28, baby: false, child: true, elder: false }, // elementary
+  { heightPx: 93, headRatio: 0.258, chub: 0.21, baby: false, child: false, elder: false }, // middle
+  { heightPx: 100, headRatio: 0.238, chub: 0.16, baby: false, child: false, elder: false }, // high
+  { heightPx: 106, headRatio: 0.222, chub: 0.13, baby: false, child: false, elder: false }, // university
+  { heightPx: 110, headRatio: 0.214, chub: 0.13, baby: false, child: false, elder: false }, // career
+  { heightPx: 110, headRatio: 0.214, chub: 0.16, baby: false, child: false, elder: false }, // marriage
+  { heightPx: 108, headRatio: 0.219, chub: 0.23, baby: false, child: false, elder: false }, // midlife
+  { heightPx: 103, headRatio: 0.229, chub: 0.28, baby: false, child: false, elder: true }, // senior
+  { heightPx: 98, headRatio: 0.239, chub: 0.3, baby: false, child: false, elder: true }, // retirement
 ];
 
 const SKIN = "#f3c49a";
@@ -238,16 +239,16 @@ function drawStanding(ctx: CanvasRenderingContext2D, cx: number, footY: number, 
   const stoop = look.elder ? H * 0.045 : 0;
   const baseY = footY - bob;
 
-  // anime build: oval head, slim neck, slender body, longer legs
+  // realistic build: oval head, real neck, normal torso, long legs (~half height)
   const headH = H * look.headRatio;
-  const headW = headH * 0.82 * (1 + look.chub * 0.05);
-  const neckH = headH * 0.2;
-  const torsoH = (H - headH - neckH) * (look.child ? 0.46 : 0.44);
-  const legH = Math.max(H * 0.2, H - headH - neckH - torsoH);
-  const shoulderW = headW * (female ? 1.06 : 1.28) + look.chub * headW * 0.16;
-  const waistW = shoulderW * (female ? 0.72 : 0.8);
-  const hipW = shoulderW * (female ? 1.0 : 0.9);
-  const legW = H * (0.05 + look.chub * 0.022);
+  const headW = headH * 0.78 * (1 + look.chub * 0.06);
+  const neckH = headH * (look.child ? 0.24 : 0.32);
+  const torsoH = (H - headH - neckH) * (look.child ? 0.46 : 0.42);
+  const legH = Math.max(H * 0.22, H - headH - neckH - torsoH);
+  const shoulderW = headW * (female ? 1.44 : 1.72) + look.chub * headW * 0.2;
+  const waistW = shoulderW * (female ? 0.66 : 0.76);
+  const hipW = shoulderW * (female ? 1.0 : 0.86);
+  const legW = H * (0.044 + look.chub * 0.018);
   const armW = legW * 0.82;
 
   const hipY = baseY - legH;
@@ -369,17 +370,17 @@ function drawHair(ctx: CanvasRenderingContext2D, hcx: number, hcy: number, hw: n
   ctx.fill();
   stroke();
 
-  // pointed fringe locks over the forehead (anime bangs)
-  const locks = look.elder ? 2 : longHair ? 5 : 4;
+  // soft fringe locks over the forehead (gentle, rounded tips)
+  const locks = look.elder ? 2 : longHair ? 4 : 3;
+  ctx.fillStyle = hair;
   for (let i = 0; i < locks; i++) {
     const t0 = (i + 0.5) / locks;
-    const lx = hcx - hw * 0.44 + hw * 0.88 * t0;
-    const len = top + hh * (0.36 + (i % 2 ? 0.14 : 0.02));
-    ctx.fillStyle = i % 2 ? hairD : hair;
+    const lx = hcx - hw * 0.4 + hw * 0.8 * t0;
+    const len = top + hh * (0.36 + (i % 2 ? 0.07 : 0.0));
     ctx.beginPath();
-    ctx.moveTo(lx - hw * 0.17, top + hh * 0.1);
-    ctx.lineTo(lx + hw * 0.02, len);
-    ctx.lineTo(lx + hw * 0.19, top + hh * 0.1);
+    ctx.moveTo(lx - hw * 0.2, top + hh * 0.08);
+    ctx.quadraticCurveTo(lx - hw * 0.04, len + hh * 0.03, lx + hw * 0.04, len);
+    ctx.quadraticCurveTo(lx + hw * 0.14, len, lx + hw * 0.22, top + hh * 0.08);
     ctx.closePath();
     ctx.fill();
     stroke();
@@ -418,74 +419,66 @@ function drawHair(ctx: CanvasRenderingContext2D, hcx: number, hcy: number, hw: n
 }
 
 function drawFace(ctx: CanvasRenderingContext2D, hcx: number, hcy: number, hw: number, hh: number, look: AvatarLook): void {
-  const iris = look.gender === "female" ? "#6a3f6a" : "#4a3526";
-  const lip = look.gender === "female" ? "#e07a88" : "#c06f66";
-  const hairD = shade(look.hair, 10);
-  // large, tall anime eyes
-  const eyeRx = hw * (look.child ? 0.17 : 0.15);
-  const eyeRy = eyeRx * 1.55;
-  const eyeY = hcy + hh * 0.14;
-  const eyeDX = hw * 0.27;
+  const big = look.child;
+  const iris = look.gender === "female" ? "#7a4a68" : "#5a4030";
+  const lip = look.gender === "female" ? "#d27a82" : "#b87066";
+  const hairD = shade(look.hair, 8);
+  // clean, modestly-sized eyes placed just below the centre of the face
+  const eyeRx = hw * (big ? 0.15 : 0.125);
+  const eyeRy = eyeRx * 1.32;
+  const eyeY = hcy + hh * 0.05;
+  const eyeDX = hw * (big ? 0.26 : 0.24);
 
   for (const s of [-1, 1]) {
     const ex = hcx + s * eyeDX;
-    ellipse(ctx, ex, eyeY, eyeRx, eyeRy, "#fdf7f5"); // sclera
-    // iris with vertical gradient (bright at the bottom — classic anime)
-    const ig = ctx.createLinearGradient(0, eyeY - eyeRy, 0, eyeY + eyeRy);
-    ig.addColorStop(0, shade(iris, 34));
-    ig.addColorStop(0.55, iris);
-    ig.addColorStop(1, tint(iris, 42));
-    ellipse(ctx, ex, eyeY + eyeRy * 0.06, eyeRx * 0.86, eyeRy * 0.84, ig);
-    ellipse(ctx, ex, eyeY + eyeRy * 0.12, eyeRx * 0.44, eyeRy * 0.5, "#1a1420"); // pupil
-    ellipse(ctx, ex - eyeRx * 0.32, eyeY - eyeRy * 0.4, eyeRx * 0.42, eyeRy * 0.3, "#ffffff"); // big highlight
-    ellipse(ctx, ex + eyeRx * 0.28, eyeY + eyeRy * 0.34, eyeRx * 0.22, eyeRy * 0.14, "rgba(255,255,255,0.85)"); // small highlight
-    // thick upper lash line + outer flick (the defining anime eye feature)
-    ctx.strokeStyle = "#241a26";
+    ellipse(ctx, ex, eyeY, eyeRx * 1.06, eyeRy * 1.08, "#fdf8f6"); // sclera
+    ellipse(ctx, ex, eyeY + eyeRy * 0.08, eyeRx * 0.9, eyeRy * 0.88, iris); // iris
+    ellipse(ctx, ex, eyeY + eyeRy * 0.12, eyeRx * 0.48, eyeRy * 0.54, "#1b1622"); // pupil
+    ellipse(ctx, ex - eyeRx * 0.34, eyeY - eyeRy * 0.32, eyeRx * 0.28, eyeRy * 0.24, "#ffffff"); // highlight
+    // soft upper eyelid line
+    ctx.strokeStyle = "#33283a";
     ctx.lineCap = "round";
-    ctx.lineWidth = hw * 0.055;
+    ctx.lineWidth = hw * 0.036;
     ctx.beginPath();
-    ctx.ellipse(ex, eyeY, eyeRx * 1.02, eyeRy * 1.02, 0, Math.PI * 1.12, Math.PI * 1.96);
-    ctx.stroke();
-    ctx.lineWidth = hw * 0.04;
-    ctx.beginPath();
-    ctx.moveTo(ex + s * eyeRx * 0.85, eyeY - eyeRy * 0.55);
-    ctx.lineTo(ex + s * eyeRx * 1.35, eyeY - eyeRy * 0.78);
+    ctx.ellipse(ex, eyeY, eyeRx * 1.04, eyeRy * 1.04, 0, Math.PI * 1.16, Math.PI * 1.9);
     ctx.stroke();
     // brow
     ctx.strokeStyle = hairD;
-    ctx.lineWidth = hw * 0.045;
+    ctx.lineWidth = hw * 0.04;
     ctx.beginPath();
-    ctx.moveTo(ex - eyeRx * 1.1, eyeY - eyeRy * 0.95);
-    ctx.quadraticCurveTo(ex, eyeY - eyeRy * (look.elder ? 1.0 : 1.2), ex + eyeRx * 1.1, eyeY - eyeRy * 1.05);
+    ctx.moveTo(ex - eyeRx * 1.05, eyeY - eyeRy * 1.3);
+    ctx.quadraticCurveTo(ex, eyeY - eyeRy * (look.elder ? 1.35 : 1.55), ex + eyeRx * 1.05, eyeY - eyeRy * 1.35);
     ctx.stroke();
   }
-  // tiny nose
-  ctx.strokeStyle = shade(look.skin, 24);
+  // nose (a soft short shadow)
+  ctx.strokeStyle = shade(look.skin, 20);
   ctx.lineWidth = hw * 0.028;
   ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(hcx - hw * 0.01, eyeY + eyeRy * 0.8);
-  ctx.lineTo(hcx + hw * 0.03, eyeY + eyeRy * 1.05);
+  ctx.moveTo(hcx, hcy + hh * 0.13);
+  ctx.lineTo(hcx + hw * 0.035, hcy + hh * 0.22);
   ctx.stroke();
-  // small mouth
+  // mouth (gentle smile)
   ctx.strokeStyle = lip;
-  ctx.lineWidth = hw * 0.045;
+  ctx.lineWidth = hw * 0.04;
   ctx.beginPath();
-  ctx.arc(hcx, eyeY + eyeRy * 1.25, hw * 0.1, 0.18 * Math.PI, 0.82 * Math.PI);
+  ctx.arc(hcx, hcy + hh * 0.27, hw * 0.15, 0.12 * Math.PI, 0.88 * Math.PI);
   ctx.stroke();
-  // soft cheeks
-  ctx.fillStyle = "rgba(255,150,165,0.34)";
-  ctx.beginPath();
-  ctx.ellipse(hcx - hw * 0.34, eyeY + eyeRy * 0.75, hw * 0.12, hh * 0.06, 0, 0, Math.PI * 2);
-  ctx.ellipse(hcx + hw * 0.34, eyeY + eyeRy * 0.75, hw * 0.12, hh * 0.06, 0, 0, Math.PI * 2);
-  ctx.fill();
+  // subtle cheeks for kids and women
+  if (big || look.gender === "female") {
+    ctx.fillStyle = "rgba(255,150,165,0.24)";
+    ctx.beginPath();
+    ctx.ellipse(hcx - hw * 0.32, hcy + hh * 0.16, hw * 0.1, hh * 0.05, 0, 0, Math.PI * 2);
+    ctx.ellipse(hcx + hw * 0.32, hcy + hh * 0.16, hw * 0.1, hh * 0.05, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
   // elder glasses
   if (look.elder) {
-    ctx.strokeStyle = "rgba(70,70,80,0.9)";
-    ctx.lineWidth = hw * 0.04;
+    ctx.strokeStyle = "rgba(64,64,74,0.92)";
+    ctx.lineWidth = hw * 0.038;
     for (const s of [-1, 1]) {
       ctx.beginPath();
-      ctx.ellipse(hcx + s * eyeDX, eyeY, eyeRx * 1.5, eyeRy * 1.05, 0, 0, Math.PI * 2);
+      ctx.ellipse(hcx + s * eyeDX, eyeY, eyeRx * 1.5, eyeRy * 1.15, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
     ctx.beginPath();
