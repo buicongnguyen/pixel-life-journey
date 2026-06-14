@@ -37,6 +37,10 @@ export interface LifeOption {
   once?: boolean;
   /** If true, the positive wealth gain is scaled by Smarts (study pays off). */
   scalesWithSmarts?: boolean;
+  /** Explicit body-weight delta (else it's derived from category — see engine). */
+  weight?: number;
+  /** Choosing this opens the house-buying picker instead of a normal action. */
+  opensHousePicker?: boolean;
   /** Key into the story comment bank (see story.ts). */
   storyTag?: string;
 }
@@ -62,6 +66,10 @@ export interface Stage {
   options: LifeOption[];
   /** Marriage stage shows a partner picker before the room loads. */
   isMarriage?: boolean;
+  /** Career stage shows the occupation picker before the room loads. */
+  isCareer?: boolean;
+  /** Home stages render the player's house quality (cracks vs decor) behind them. */
+  atHome?: boolean;
 }
 
 export interface Partner {
@@ -83,4 +91,35 @@ export interface HistoryEntry {
   optionId: string;
   storyTag?: string;
   ageAt: number;
+}
+
+export type Gender = "male" | "female";
+
+/** A job chosen at the start of the Career stage. */
+export interface Occupation {
+  id: string;
+  name: string;
+  emoji: string;
+  blurb: string;
+  /** Multiplier on the wealth earned from work-style options. */
+  salaryMul: number;
+  /** Smarts required to unlock this career. */
+  minSmarts: number;
+  /** Small one-off boost applied when you take the job. */
+  perks?: Partial<Stats>;
+  storyTag: string;
+}
+
+/** A house tier the player can buy once they're working. */
+export interface HouseTier {
+  id: string;
+  name: string;
+  emoji: string;
+  /** Wealth cost. */
+  cost: number;
+  /** 1 (run-down, cracked) .. 4 (mansion). Drives the home background. */
+  quality: number;
+  /** Happiness gained from buying it. */
+  happiness: number;
+  blurb: string;
 }

@@ -1,15 +1,30 @@
-import type { HistoryEntry, LifeOption, Partner, Stats, StatKey } from "./types";
+import type {
+  Gender,
+  HistoryEntry,
+  HouseTier,
+  LifeOption,
+  Occupation,
+  Partner,
+  Stats,
+  StatKey,
+} from "./types";
 import {
   START_STATS,
+  START_WEIGHT,
   STAT_KEYS,
   STAT_META,
   applyEffects,
   clampStat,
   lifeExpectancyFromHealth,
   wealthHappinessBias,
+  weightColor,
+  weightHealthDrain,
+  weightStatus,
 } from "./stats";
 import { STAGES } from "./stages";
 import { PARTNERS } from "./partners";
+import { OCCUPATIONS } from "./occupations";
+import { HOUSE_TIERS } from "./houses";
 import { avatarLook, drawAvatar, drawRoom, drawStation } from "./sprites";
 import { createUI, type UIRefs } from "./ui";
 import { generateStory, type CauseOfEnd, type LifeStory } from "./story";
@@ -21,12 +36,36 @@ const DOOR_X = W - 56;
 const SPEED = 124;
 const CAREER_INDEX = STAGES.findIndex((s) => s.id === "career");
 
-type Mode = "title" | "playing" | "partner" | "transition" | "ending";
+type Mode =
+  | "title"
+  | "setup"
+  | "playing"
+  | "partner"
+  | "occupation"
+  | "house"
+  | "timetravel"
+  | "transition"
+  | "ending";
 
 interface Station {
   x: number;
   y: number;
   opt: LifeOption;
+}
+
+/** A rewindable snapshot of the whole life, captured at each stage's start. */
+interface Snapshot {
+  stageIndex: number;
+  age: number;
+  stats: Stats;
+  weight: number;
+  partnerId: string | null;
+  occupationId: string | null;
+  homeQuality: number;
+  hadChild: boolean;
+  healthSum: number;
+  healthCount: number;
+  historyLen: number;
 }
 
 interface FloatText {
@@ -43,6 +82,12 @@ export class Game {
   private stageIndex = 0;
   private stats: Stats = { ...START_STATS };
   private age = 0;
+  private gender: Gender = "male";
+  private weight = START_WEIGHT;
+  private occupation: Occupation | null = null;
+  private homeQuality = 0;
+  private timeline: Snapshot[] = [];
+  private pendingHouseOptId: string | null = null;
   private history: HistoryEntry[] = [];
   private partner: Partner | null = null;
   private hadChild = false;
@@ -72,6 +117,7 @@ export class Game {
   private input = { left: false, right: false, up: false, down: false };
   private actQueued = false;
   private lastTime = 0;
+  private frameErrors = 0;
 
   constructor(mount: HTMLElement) {
     this.ui = createUI(mount);
@@ -94,6 +140,11 @@ export class Game {
       py: Math.round(this.py),
       focus: this.focusIndex >= 0 ? this.stations[this.focusIndex]?.opt.id : null,
       partner: this.partner?.id ?? null,
+      gender: this.gender,
+      weight: Math.round(this.weight),
+      occupation: this.occupation?.id ?? null,
+      homeQuality: this.homeQuality,
+      timelineLen: this.timeline.filter(Boolean).length,
       historyLen: this.history.length,
     };
   }
@@ -107,11 +158,32 @@ export class Game {
     this.doAction();
   }
 
+  /** Test/debug: pick a partner / occupation / house tier / rewind by id. */
+  debugPick(kind: "partner" | "occupation" | "house" | "rewind", id: string): void {
+    if (kind === "partner") {
+      const p = PARTNERS.find((x) => x.id === id);
+      if (p) this.pickPartner(p);
+    } else if (kind === "occupation") {
+      const o = OCCUPATIONS.find((x) => x.id === id);
+      if (o) this.pickOccupation(o);
+    } else if (kind === "house") {
+      const h = HOUSE_TIERS.find((x) => x.id === id);
+      if (h) this.buyHouse(h);
+    } else if (kind === "rewind") {
+      this.rewind(Number(id));
+    }
+  }
+
   // --- lifecycle ------------------------------------------------------------
 
   private newGame(): void {
     this.stats = { ...START_STATS };
     this.age = 0;
+    this.weight = START_WEIGHT;
+    this.occupation = null;
+    this.homeQuality = 0;
+    this.timeline = [];
+    this.pendingHouseOptId = null;
     this.history = [];
     this.partner = null;
     this.hadChild = false;
@@ -133,13 +205,33 @@ export class Game {
     this.focusIndex = -1;
     this.buildStations();
     this.sampleHealth();
+    this.timeline[i] = this.snapshot(); // capture entry state for time travel
     if (s.isMarriage && !this.partner) {
       this.mode = "partner";
       this.showPartner();
+    } else if (s.isCareer && !this.occupation) {
+      this.mode = "occupation";
+      this.showOccupation();
     } else {
       this.mode = "playing";
       this.clearOverlay();
     }
+  }
+
+  private snapshot(): Snapshot {
+    return {
+      stageIndex: this.stageIndex,
+      age: this.age,
+      stats: { ...this.stats },
+      weight: this.weight,
+      partnerId: this.partner?.id ?? null,
+      occupationId: this.occupation?.id ?? null,
+      homeQuality: this.homeQuality,
+      hadChild: this.hadChild,
+      healthSum: this.healthSum,
+      healthCount: this.healthCount,
+      historyLen: this.history.length,
+    };
   }
 
   private buildStations(): void {
@@ -182,7 +274,9 @@ export class Game {
 
   private passiveTick(): void {
     const s = this.stats;
-    s.health = clampStat(s.health - (0.4 + this.age * 0.012));
+    // modern life drifts toward weight gain; being out of range drains health
+    this.weight = clampStat(this.weight + 0.13);
+    s.health = clampStat(s.health - (0.4 + this.age * 0.012) - weightHealthDrain(this.weight));
     s.fun = clampStat(s.fun - 0.45);
     s.happiness = clampStat(s.happiness - 0.25 - (s.health < 25 ? 0.6 : 0));
     s.smarts = clampStat(s.smarts - 0.15);
@@ -207,11 +301,26 @@ export class Game {
       return;
     }
 
+    // buying a house opens a picker instead of applying a normal action
+    if (opt.opensHousePicker) {
+      this.pendingHouseOptId = opt.id;
+      this.mode = "house";
+      this.showHouse();
+      return;
+    }
+
     const eff: Partial<Stats> = { ...opt.effects };
+    // salary = base earnings x how smart you are x your occupation's pay
     if (opt.scalesWithSmarts && eff.wealth && eff.wealth > 0) {
-      eff.wealth = Math.round(eff.wealth * (0.7 + this.stats.smarts / 140));
+      const smartFactor = 0.7 + this.stats.smarts / 140;
+      const jobFactor = this.occupation?.salaryMul ?? 1;
+      eff.wealth = Math.round(eff.wealth * smartFactor * jobFactor);
     }
     this.stats = applyEffects(this.stats, eff);
+
+    // body weight: explicit delta, else derived from what kind of action it is
+    const wDelta = opt.weight ?? this.autoWeightDelta(opt);
+    this.weight = clampStat(this.weight + wDelta);
 
     this.age += opt.ageCost ?? this.stageStep();
     this.passiveTick();
@@ -230,24 +339,42 @@ export class Game {
       storyTag: opt.storyTag,
       ageAt: this.age,
     });
-    this.spawnFloats(eff);
+    this.spawnFloats(eff, wDelta);
 
     if (this.stats.health <= 0) this.finishLife("health", Math.round(this.age));
   }
 
-  private spawnFloats(eff: Partial<Stats>): void {
+  /** Body-weight change implied by an option when it has no explicit `weight`. */
+  private autoWeightDelta(opt: LifeOption): number {
+    // tuned so 1 junk + 1 exercise roughly cancels: balance keeps you healthy,
+    // junk-heavy tips you overweight, exercise offsets it.
+    if (opt.category === "food") return (opt.effects.health ?? 0) < 0 ? 3 : -1;
+    if (opt.category === "health") return -3; // exercise & sports burn it off
+    const t = opt.storyTag;
+    if (t === "sedentary" || t === "gaming" || t === "screen" || t === "toy_phone") return 1.5;
+    return 0;
+  }
+
+  private spawnFloats(eff: Partial<Stats>, wDelta = 0): void {
     let row = 0;
-    for (const k of STAT_KEYS) {
-      const d = eff[k];
-      if (!d) continue;
+    const push = (text: string, color: string) => {
       this.floats.push({
         x: this.px + (row % 2 === 0 ? -14 : 14),
         y: this.py - 46 - Math.floor(row / 2) * 12,
-        text: `${d > 0 ? "+" : ""}${d} ${STAT_META[k].icon}`,
-        color: d > 0 ? STAT_META[k].color : "#ff7a7a",
+        text,
+        color,
         life: 1.1,
       });
       row++;
+    };
+    for (const k of STAT_KEYS) {
+      const d = eff[k];
+      if (!d) continue;
+      push(`${d > 0 ? "+" : ""}${d} ${STAT_META[k].icon}`, d > 0 ? STAT_META[k].color : "#ff7a7a");
+    }
+    if (Math.abs(wDelta) >= 1) {
+      // gaining weight is the "bad" direction, so colour it like a penalty
+      push(`${wDelta > 0 ? "+" : ""}${Math.round(wDelta)} ⚖️`, wDelta > 0 ? "#ff9f6b" : "#7fd0a0");
     }
   }
 
@@ -295,6 +422,10 @@ export class Game {
       deathAge,
       cause,
       hadChild: this.hadChild,
+      gender: this.gender,
+      weight: this.weight,
+      occupation: this.occupation,
+      homeQuality: this.homeQuality,
     });
     this.mode = "ending";
     this.showEnding();
@@ -310,9 +441,72 @@ export class Game {
       storyTag: undefined,
       ageAt: this.age,
     });
+    this.timeline[this.stageIndex] = this.snapshot(); // re-capture: now married
     this.mode = "playing";
     this.clearOverlay();
     this.hint(`💍 You married ${p.name}, ${p.title}!`);
+  }
+
+  private pickOccupation(o: Occupation): void {
+    this.occupation = o;
+    if (o.perks) this.stats = applyEffects(this.stats, o.perks);
+    this.history.push({
+      stageId: "career",
+      stageName: "Career",
+      optionId: "job_" + o.id,
+      storyTag: o.storyTag,
+      ageAt: this.age,
+    });
+    this.timeline[this.stageIndex] = this.snapshot();
+    this.mode = "playing";
+    this.clearOverlay();
+    this.hint(`${o.emoji} You became a ${o.name}!`);
+  }
+
+  private buyHouse(h: HouseTier): void {
+    if (this.stats.wealth < h.cost) {
+      this.hint("You can't afford that one yet.");
+      return;
+    }
+    this.stats = applyEffects(this.stats, { wealth: -h.cost, happiness: h.happiness });
+    this.homeQuality = Math.max(this.homeQuality, h.quality); // upgrades only, never downgrade
+    if (this.pendingHouseOptId) this.usedOnce.add(this.pendingHouseOptId);
+    this.pendingHouseOptId = null;
+    this.age += this.stageStep();
+    this.passiveTick();
+    this.sampleHealth();
+    this.history.push({
+      stageId: STAGES[this.stageIndex].id,
+      stageName: STAGES[this.stageIndex].name,
+      optionId: "house_" + h.id,
+      storyTag: "home",
+      ageAt: this.age,
+    });
+    this.mode = "playing";
+    this.clearOverlay();
+    this.hint(`${h.emoji} You bought a ${h.name.toLowerCase()}!`);
+  }
+
+  /** Time travel: jump back to the start of a previously-visited stage. */
+  private rewind(stageIndex: number): void {
+    const snap = this.timeline[stageIndex];
+    if (!snap) return;
+    this.stats = { ...snap.stats };
+    this.weight = snap.weight;
+    this.age = snap.age;
+    this.homeQuality = snap.homeQuality;
+    this.hadChild = snap.hadChild;
+    this.healthSum = snap.healthSum;
+    this.healthCount = snap.healthCount;
+    this.partner = snap.partnerId ? PARTNERS.find((p) => p.id === snap.partnerId) ?? null : null;
+    this.occupation = snap.occupationId
+      ? OCCUPATIONS.find((o) => o.id === snap.occupationId) ?? null
+      : null;
+    this.history = this.history.slice(0, snap.historyLen);
+    this.floats = [];
+    this.clearOverlay();
+    this.loadStage(stageIndex);
+    this.hint(`⏳ You travelled back to age ${Math.floor(this.age)}.`);
   }
 
   // --- main loop ------------------------------------------------------------
@@ -320,8 +514,13 @@ export class Game {
   private frame = (t: number): void => {
     const dt = Math.min(0.05, (t - this.lastTime) / 1000 || 0);
     this.lastTime = t;
-    this.update(dt);
-    this.render();
+    // a single bad frame must never freeze the whole game
+    try {
+      this.update(dt);
+      this.render();
+    } catch (err) {
+      if (this.frameErrors++ < 5) console.error("[pixel-life] frame error", err);
+    }
     requestAnimationFrame(this.frame);
   };
 
@@ -337,6 +536,7 @@ export class Game {
     for (const f of this.floats) f.y -= dt * 26;
 
     if (this.mode === "transition") {
+      this.actQueued = false;
       this.transitionTimer -= dt;
       if (this.transitionTimer <= 0) this.loadStage(this.transitionNext);
       return;
@@ -344,6 +544,7 @@ export class Game {
 
     if (this.mode !== "playing") {
       this.moving = false;
+      this.actQueued = false; // drop inputs queued while an overlay was open
       return;
     }
 
@@ -415,12 +616,22 @@ export class Game {
     ctx.fillStyle = "#140d24";
     ctx.fillRect(0, 0, W, H);
 
-    if ((this.mode === "playing" || this.mode === "transition" || this.mode === "partner") &&
-        this.stageIndex < STAGES.length) {
+    const inRoom =
+      this.mode === "playing" ||
+      this.mode === "transition" ||
+      this.mode === "partner" ||
+      this.mode === "occupation" ||
+      this.mode === "house" ||
+      this.mode === "timetravel";
+    if (inRoom && this.stageIndex < STAGES.length) {
       const s = STAGES[this.stageIndex];
       const t = this.walkPhase;
       const doorActive = this.age >= s.ageEnd;
-      drawRoom(ctx, s.theme, W, H, FLOOR_Y, doorActive, t);
+      drawRoom(ctx, s.theme, W, H, FLOOR_Y, doorActive, t, {
+        stageId: s.id,
+        atHome: !!s.atHome,
+        homeQuality: this.homeQuality,
+      });
 
       // stations sorted by y so closer ones overlap correctly
       const order = [...this.stations].sort((a, b) => a.y - b.y);
@@ -430,7 +641,7 @@ export class Game {
         drawStation(ctx, st.x, st.y, st.opt.icon, st.opt.label, st.opt.category, focused, used, t);
       }
 
-      drawAvatar(ctx, this.px, this.py, avatarLook(this.stageIndex), this.walkPhase, this.moving);
+      drawAvatar(ctx, this.px, this.py, avatarLook(this.stageIndex, this.gender), this.walkPhase, this.moving);
     }
 
     // floats
@@ -455,11 +666,25 @@ export class Game {
       bar.val.textContent = String(v);
       bar.fill.style.opacity = v < 20 ? "0.6" : "1";
     }
+    // weight meter: colour reflects healthy / over / under, not "more is better"
+    const wb = this.ui.weightBar;
+    wb.fill.style.width = `${this.weight}%`;
+    wb.fill.style.background = weightColor(this.weight);
+    wb.val.textContent = String(Math.round(this.weight));
+
     const s = STAGES[Math.min(this.stageIndex, STAGES.length - 1)];
-    this.ui.stageLabel.textContent = `${s.emoji} ${s.name}`;
+    const occ = this.occupation ? ` · ${this.occupation.emoji} ${this.occupation.name}` : "";
+    this.ui.stageLabel.textContent = `${s.emoji} ${s.name}${occ}`;
     this.ui.ageLabel.textContent = String(Math.floor(this.age));
-    this.ui.leLabel.textContent = this.mode === "title" ? "" : ` · ~${this.lifeExp()}y`;
-    this.ui.warn.style.display = this.mode === "playing" && this.stats.health < 25 ? "block" : "none";
+    this.ui.leLabel.textContent =
+      this.mode === "title" || this.mode === "setup" ? "" : ` · ~${this.lifeExp()}y`;
+    this.ui.warn.style.display =
+      this.mode === "playing" && (this.stats.health < 25 || weightStatus(this.weight) === "obese")
+        ? "block"
+        : "none";
+    // time-travel pill appears once you have a past worth revisiting
+    const canRewind = this.mode === "playing" && this.timeline.filter(Boolean).length > 1;
+    this.ui.timeTravel.style.display = canRewind ? "flex" : "none";
   }
 
   private renderFocusPanel(): void {
@@ -501,7 +726,28 @@ export class Game {
         <p class="plj-foot">Arrows / WASD to move · SPACE to choose · or use the on-screen pad</p>
       </div>`;
     this.ui.overlay.classList.add("show");
-    this.ui.overlay.querySelector<HTMLButtonElement>("#plj-start")!.onclick = () => this.newGame();
+    this.ui.overlay.querySelector<HTMLButtonElement>("#plj-start")!.onclick = () => this.showSetup();
+  }
+
+  private showSetup(): void {
+    this.mode = "setup";
+    this.ui.overlay.innerHTML = `
+      <div class="plj-card plj-title">
+        <h2>A new life begins…</h2>
+        <p class="plj-sub">Is it a boy or a girl?</p>
+        <div class="plj-genders">
+          <button class="plj-gender" data-g="male"><span class="plj-gender-face">👦</span><span>Boy</span></button>
+          <button class="plj-gender" data-g="female"><span class="plj-gender-face">👧</span><span>Girl</span></button>
+        </div>
+        <p class="plj-foot">You'll grow from a newborn all the way to old age.</p>
+      </div>`;
+    this.ui.overlay.classList.add("show");
+    this.ui.overlay.querySelectorAll<HTMLButtonElement>(".plj-gender").forEach((btn) => {
+      btn.onclick = () => {
+        this.gender = btn.dataset.g === "female" ? "female" : "male";
+        this.newGame();
+      };
+    });
   }
 
   private showTransition(lines: string[]): void {
@@ -539,6 +785,104 @@ export class Game {
     });
   }
 
+  private showOccupation(): void {
+    const cards = OCCUPATIONS.map((o) => {
+      const locked = this.stats.smarts < o.minSmarts;
+      const pay = o.salaryMul >= 1.4 ? "💰💰💰" : o.salaryMul >= 1.0 ? "💰💰" : "💰";
+      return `
+      <button class="plj-partner${locked ? " locked" : ""}" data-id="${o.id}" ${locked ? "disabled" : ""}>
+        <span class="plj-partner-face">${o.emoji}</span>
+        <span class="plj-partner-name">${o.name}</span>
+        <span class="plj-partner-title">Pay ${pay}</span>
+        <span class="plj-partner-blurb">${o.blurb}</span>
+        <span class="plj-chips">${locked ? `<span class="plj-chip" style="color:#ff8a8a">🔒 needs 🧠 ${o.minSmarts}</span>` : effectChips(o.perks ?? {})}</span>
+      </button>`;
+    }).join("");
+    this.ui.overlay.innerHTML = `
+      <div class="plj-card plj-partners-card">
+        <h2>💼 Choose your career</h2>
+        <p class="plj-sub">Your salary = the job × how smart you are. Study more to unlock better-paying jobs.</p>
+        <div class="plj-partners">${cards}</div>
+      </div>`;
+    this.ui.overlay.classList.add("show");
+    this.ui.overlay.querySelectorAll<HTMLButtonElement>(".plj-partner:not(.locked)").forEach((btn) => {
+      btn.onclick = () => {
+        const o = OCCUPATIONS.find((x) => x.id === btn.dataset.id);
+        if (o) this.pickOccupation(o);
+      };
+    });
+  }
+
+  private showHouse(): void {
+    const stars = (q: number) => "★".repeat(q) + "☆".repeat(4 - q);
+    const cards = HOUSE_TIERS.map((h) => {
+      const afford = this.stats.wealth >= h.cost;
+      return `
+      <button class="plj-partner${afford ? "" : " locked"}" data-id="${h.id}" ${afford ? "" : "disabled"}>
+        <span class="plj-partner-face">${h.emoji}</span>
+        <span class="plj-partner-name">${h.name}</span>
+        <span class="plj-partner-title">${stars(h.quality)}</span>
+        <span class="plj-partner-blurb">${h.blurb}</span>
+        <span class="plj-chips"><span class="plj-chip" style="color:#ff8a8a">-${h.cost} 💰</span><span class="plj-chip" style="color:#ffd23f">+${h.happiness} 😊</span></span>
+      </button>`;
+    }).join("");
+    this.ui.overlay.innerHTML = `
+      <div class="plj-card plj-partners-card">
+        <h2>🏠 Buy a home</h2>
+        <p class="plj-sub">A pricier home is bright and happy; a cheap one comes with cracks. You can only buy what you can afford.</p>
+        <div class="plj-partners">${cards}</div>
+        <button class="plj-btn plj-btn-ghost" id="plj-house-cancel">Not now</button>
+      </div>`;
+    this.ui.overlay.classList.add("show");
+    this.ui.overlay.querySelectorAll<HTMLButtonElement>(".plj-partner:not(.locked)").forEach((btn) => {
+      btn.onclick = () => {
+        const h = HOUSE_TIERS.find((x) => x.id === btn.dataset.id);
+        if (h) this.buyHouse(h);
+      };
+    });
+    this.ui.overlay.querySelector<HTMLButtonElement>("#plj-house-cancel")!.onclick = () => {
+      this.pendingHouseOptId = null;
+      this.mode = "playing";
+      this.clearOverlay();
+    };
+  }
+
+  private showTimeTravel(): void {
+    if (this.mode !== "playing") return;
+    const past: { snap: Snapshot; i: number }[] = [];
+    this.timeline.forEach((snap, i) => {
+      if (snap && i <= this.stageIndex) past.push({ snap, i });
+    });
+    if (past.length < 2) return;
+    this.mode = "timetravel";
+    const cards = past
+      .map(({ snap, i }) => {
+        const st = STAGES[i];
+        return `
+      <button class="plj-partner" data-i="${i}">
+        <span class="plj-partner-face">${st.emoji}</span>
+        <span class="plj-partner-name">${st.name}</span>
+        <span class="plj-partner-title">Age ${Math.floor(snap.age)}</span>
+      </button>`;
+      })
+      .join("");
+    this.ui.overlay.innerHTML = `
+      <div class="plj-card plj-partners-card">
+        <h2>⏳ Time-Travel Pill</h2>
+        <p class="plj-sub">Jump back to any age and re-live from there — a chance to change everything that came after.</p>
+        <div class="plj-partners">${cards}</div>
+        <button class="plj-btn plj-btn-ghost" id="plj-tt-cancel">Stay in the present</button>
+      </div>`;
+    this.ui.overlay.classList.add("show");
+    this.ui.overlay.querySelectorAll<HTMLButtonElement>(".plj-partner").forEach((btn) => {
+      btn.onclick = () => this.rewind(Number(btn.dataset.i));
+    });
+    this.ui.overlay.querySelector<HTMLButtonElement>("#plj-tt-cancel")!.onclick = () => {
+      this.mode = "playing";
+      this.clearOverlay();
+    };
+  }
+
   private showEnding(): void {
     const story = this.story!;
     const summary = STAT_KEYS.map(
@@ -568,6 +912,9 @@ export class Game {
         case " ": case "Enter": case "e": case "E":
           if (down) this.actQueued = true;
           break;
+        case "t": case "T":
+          if (down) this.showTimeTravel();
+          break;
         default: return;
       }
       e.preventDefault();
@@ -591,6 +938,7 @@ export class Game {
       e.preventDefault();
       this.actQueued = true;
     });
+    this.ui.timeTravel.addEventListener("click", () => this.showTimeTravel());
   }
 }
 

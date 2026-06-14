@@ -21,15 +21,20 @@ mattered.
 
 ---
 
-## 2. The five indices (0–100 meters)
+## 2. The indices (0–100 meters)
 
 | Index | Icon | What raises it | What lowers it |
 |-------|------|----------------|----------------|
-| **Health** | ❤️ | healthy food, exercise, sleep, check-ups, social ties | junk food, overwork, sedentary time, ageing |
+| **Health** | ❤️ | healthy food, exercise, sleep, check-ups, social ties | junk food, overwork, sedentary time, ageing, bad weight |
 | **Happiness** | 😊 | family, friends, love, fun, hobbies, *some* wealth | poor health, poverty, overwork, loneliness |
-| **Wealth** | 💰 | work, jobs, investing (scaled by Smarts) | spending on fun, travel, partying, a home |
-| **Fun** | 🎉 | play, games, music, hobbies, parties, travel | doing nothing but work/study |
-| **Smarts** | 🧠 | study, reading, music, internships, mentoring | too much screen time, never learning |
+| **Wealth** | 💰 | work, jobs, investing (scaled by Smarts & occupation) | spending on fun, travel, partying, a home |
+| **Fun** | 🎉 | play, toys, games, music, hobbies, parties, travel | doing nothing but work/study |
+| **Smarts** | 🧠 | study, reading, music, internships, upskilling | too much screen time, never learning |
+| **Weight** | ⚖️ | junk food, sweets, sedentary time | healthy food, exercise & sports |
+
+**Weight** is special: ~50 is ideal, and the bar is colour-coded (green healthy,
+amber over/under, red obese). It isn't "more is better" — drifting outside the
+healthy band (40–64) quietly **drains health** every action, so it feeds longevity.
 
 Plus two derived values:
 
@@ -37,6 +42,31 @@ Plus two derived values:
   end-age opens the door.
 - **Life expectancy** — computed from your *average health across life*. Shown in
   the HUD as `~78y`. If your age reaches it, your life ends.
+
+---
+
+## 2b. Core mechanics
+
+- **👦/👧 Gender** — chosen at birth. Changes the character sprite (hair, palette)
+  and the story's pronoun ("a baby boy/girl was born").
+- **🧸 Toys** — car, doll and (later) smartphone appear as choices in the young
+  rooms; each is a different Fun / Smarts / social trade-off (the phone costs
+  Health & Smarts).
+- **⚖️ Weight** — see above; junk piles it on, exercise burns it off, balance keeps
+  you healthy. Tuned so 1 junk ≈ 1 exercise cancels out.
+- **💼 Occupation → salary** — at the Career stage you pick a job
+  (see [`occupations.ts`](src/occupations.ts)). Your salary = `base × (0.7 +
+  Smarts/140) × the job's pay multiplier`, so **Smarts and the job together** set
+  your pay. Better jobs are **locked** until you're smart enough (Doctor needs 🧠 68),
+  and you can **upskill** at work to raise Smarts mid-career.
+- **🏠 Buy a house** — at Career/Marriage you can buy a home you can afford
+  (see [`houses.ts`](src/houses.ts)). The tier sets a lasting **home quality (1–4)**
+  that becomes the *background* of every home room afterwards — a grand house is
+  bright and decorated; a cheap flat is **cracked and run-down**. Upgrades only.
+- **⏳ Time-travel pill** — a HUD button (or the `T` key) opens a list of every age
+  you've lived; pick one to **rewind** there and re-live from that point. The
+  rewound state is restored exactly (stats, weight, age, partner, job, home), and
+  anything you hadn't acquired yet is cleared.
 
 ---
 

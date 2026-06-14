@@ -9,7 +9,7 @@ import type { RoomTheme, Stage } from "./types";
 // ---------------------------------------------------------------------------
 
 const themes: Record<string, RoomTheme> = {
-  nursery: { wall: "#3a2b5e", wallShade: "#2e2150", floor: "#6b4f9e", floorShade: "#5a4185", accent: "#ffb3d9" },
+  nursery: { wall: "#f4cfe0", wallShade: "#e6b6ce", floor: "#cfe4ff", floorShade: "#b4d2f3", accent: "#ff9ecb" },
   play: { wall: "#274b6b", wallShade: "#1f3c57", floor: "#3f7ca8", floorShade: "#356a90", accent: "#ffd23f" },
   yard: { wall: "#2e5d4a", wallShade: "#24493a", floor: "#4f9e7a", floorShade: "#428566", accent: "#ffe08a" },
   school: { wall: "#5a3f6b", wallShade: "#4a3358", floor: "#9e6f4f", floorShade: "#855e42", accent: "#7fd0ff" },
@@ -54,6 +54,8 @@ export const STAGES: Stage[] = [
       { id: "cartoons", label: "Cartoons", icon: "📺", desc: "Watch cartoons. Fun, but too much dulls the mind.", category: "fun", effects: { fun: 7, smarts: -2 }, storyTag: "screen" },
       { id: "slide", label: "Playground", icon: "🛝", desc: "Run and slide outside — active and joyful.", category: "health", effects: { health: 5, fun: 5 }, storyTag: "play_active" },
       { id: "hug", label: "Family hug", icon: "🤗", desc: "Warm family hugs build a secure, happy child.", category: "social", effects: { happiness: 7, health: 2 }, storyTag: "family_love" },
+      { id: "toycar", label: "Toy car", icon: "🚗", desc: "Zoom toy cars around — imaginative, hands-on play.", category: "fun", effects: { fun: 6, smarts: 3 }, storyTag: "toy_car" },
+      { id: "doll", label: "Doll", icon: "🧸", desc: "Cuddle a doll or teddy — gentle, nurturing play.", category: "social", effects: { happiness: 6, fun: 3 }, storyTag: "toy_doll" },
     ],
   },
   {
@@ -72,6 +74,7 @@ export const STAGES: Stage[] = [
       { id: "music", label: "Music", icon: "🎵", desc: "Sing and dance to music. Pure happiness.", category: "fun", effects: { happiness: 6, fun: 4 }, storyTag: "music" },
       { id: "games", label: "Video games", icon: "🎮", desc: "Play video games. Loads of fun, a bit sedentary.", category: "fun", effects: { fun: 8, health: -3 }, storyTag: "gaming" },
       { id: "friends", label: "Playdates", icon: "👫", desc: "Make friends. Good company, good heart.", category: "social", effects: { happiness: 6, health: 2 }, storyTag: "friends" },
+      { id: "doll", label: "Toys", icon: "🧸", desc: "Dolls and action figures — hours of make-believe.", category: "fun", effects: { happiness: 5, fun: 4 }, storyTag: "toy_doll" },
     ],
   },
   {
@@ -90,6 +93,7 @@ export const STAGES: Stage[] = [
       { id: "lunch", label: "Healthy lunch", icon: "🥗", desc: "A balanced lunch keeps you sharp and well.", category: "food", effects: { health: 7 }, storyTag: "veggies" },
       { id: "junk", label: "Fast food", icon: "🍔", desc: "Burgers and fries. Yummy but unhealthy.", category: "food", effects: { fun: 6, health: -6 }, storyTag: "junkfood" },
       { id: "friends", label: "Friends", icon: "🧑‍🤝‍🧑", desc: "Hang out with friends. Belonging feels great.", category: "social", effects: { happiness: 7, health: 2 }, storyTag: "friends" },
+      { id: "phone", label: "Smartphone", icon: "📱", desc: "Your first phone. Fun and connected — but a real time-sink.", category: "fun", effects: { fun: 7, happiness: 3, health: -2, smarts: -2 }, storyTag: "toy_phone" },
     ],
   },
   {
@@ -108,6 +112,7 @@ export const STAGES: Stage[] = [
       { id: "read", label: "Read books", icon: "📖", desc: "Read for fun — quietly makes you smarter.", category: "smarts", effects: { smarts: 7 }, storyTag: "read" },
       { id: "sleep", label: "Good sleep", icon: "😴", desc: "Sleep early. The best fuel for body and brain.", category: "rest", effects: { health: 7, smarts: 2 }, storyTag: "sleep" },
       { id: "soda", label: "Snacks & soda", icon: "🥤", desc: "Chips and fizzy drinks. Fun but sugary.", category: "food", effects: { fun: 6, health: -6 }, storyTag: "junkfood" },
+      { id: "phone", label: "Smartphone", icon: "📱", desc: "Glued to your phone. Social and fun, but distracting.", category: "fun", effects: { fun: 8, happiness: 2, health: -3, smarts: -3 }, storyTag: "toy_phone" },
     ],
   },
   {
@@ -154,6 +159,7 @@ export const STAGES: Stage[] = [
     ageEnd: 30,
     blurb: "Ages 22–30. Building a career. Mind the work–life balance!",
     theme: themes.office,
+    isCareer: true,
     options: [
       { id: "overtime", label: "Overtime grind", icon: "⏰", desc: "Work 60-hour weeks. Big money — but it burns out your health, fun and joy.", category: "wealth", effects: { wealth: 12, health: -7, fun: -6, happiness: -4 }, scalesWithSmarts: true, storyTag: "overtime" },
       { id: "work", label: "Steady work", icon: "💼", desc: "Solid, balanced work. Reliable income, life intact.", category: "wealth", effects: { wealth: 8, fun: -2 }, scalesWithSmarts: true, storyTag: "work" },
@@ -162,6 +168,8 @@ export const STAGES: Stage[] = [
       { id: "vacation", label: "Vacation", icon: "🏖️", desc: "Take a real holiday. Recharge body and soul.", category: "fun", effects: { fun: 9, happiness: 6, wealth: -6 }, storyTag: "travel" },
       { id: "friends", label: "Friends & dates", icon: "🍷", desc: "Nurture friendships and romance. People matter most.", category: "social", effects: { happiness: 7, fun: 3, wealth: -2 }, storyTag: "friends" },
       { id: "desk", label: "Desk fast food", icon: "🍔", desc: "Eat at your desk every day. Quietly erodes your health.", category: "food", effects: { fun: 3, health: -6 }, storyTag: "junkfood" },
+      { id: "upskill", label: "Take a course", icon: "📚", desc: "Study evenings to upskill. More Smarts means a bigger salary.", category: "smarts", effects: { smarts: 7, wealth: -3, fun: -2 }, storyTag: "upskill" },
+      { id: "house", label: "Buy a house", icon: "🏠", desc: "Buy a home — choose what you can afford. It shapes your whole future.", category: "special", effects: {}, opensHousePicker: true, once: true, storyTag: "home" },
     ],
   },
   {
@@ -173,13 +181,14 @@ export const STAGES: Stage[] = [
     blurb: "Ages 30–36. Settle down, build a family, and grow together.",
     theme: themes.home,
     isMarriage: true,
+    atHome: true,
     options: [
       { id: "baby", label: "Have a baby", icon: "👶", desc: "Start a family. Overwhelming love (and a few sleepless years).", category: "special", effects: { happiness: 12, wealth: -6, fun: -4, health: -2 }, once: true, storyTag: "baby" },
       { id: "family", label: "Family time", icon: "🏡", desc: "Be present at home. The heart of a happy life.", category: "social", effects: { happiness: 8, health: 3 }, storyTag: "family" },
       { id: "date", label: "Date nights", icon: "🌹", desc: "Keep the romance alive with your partner.", category: "fun", effects: { happiness: 6, fun: 5, wealth: -3 }, storyTag: "date" },
       { id: "provide", label: "Work for family", icon: "💼", desc: "Provide for the household. Smarter careers pay more.", category: "wealth", effects: { wealth: 9, fun: -3 }, scalesWithSmarts: true, storyTag: "provide" },
       { id: "meals", label: "Family meals", icon: "🥗", desc: "Cook healthy meals together. Good for everyone.", category: "food", effects: { health: 8, happiness: 2 }, storyTag: "veggies" },
-      { id: "home", label: "Buy a home", icon: "🏠", desc: "Buy a house. A big, happy commitment — and expensive.", category: "special", effects: { happiness: 7, wealth: -10 }, once: true, storyTag: "home" },
+      { id: "house", label: "Buy a home", icon: "🏠", desc: "Buy a house — choose what you can afford. A bigger home, a brighter background.", category: "special", effects: {}, opensHousePicker: true, once: true, storyTag: "home" },
       { id: "active", label: "Stay active", icon: "🚴", desc: "Keep moving as a family. Health habits stick.", category: "health", effects: { health: 8, fun: 2 }, storyTag: "exercise" },
     ],
   },
@@ -191,6 +200,7 @@ export const STAGES: Stage[] = [
     ageEnd: 55,
     blurb: "Ages 36–55. Career peak and family — but the body needs care now.",
     theme: themes.mid,
+    atHome: true,
     options: [
       { id: "career", label: "Career peak", icon: "⏰", desc: "Climb to the top. Great money, hard on an aging body.", category: "wealth", effects: { wealth: 11, health: -6, fun: -4 }, scalesWithSmarts: true, storyTag: "overtime" },
       { id: "exercise", label: "Exercise", icon: "🏃", desc: "Stay fit in midlife — it adds years to your life.", category: "health", effects: { health: 10 }, storyTag: "exercise" },
@@ -200,6 +210,7 @@ export const STAGES: Stage[] = [
       { id: "stress", label: "Stress eating", icon: "🍩", desc: "Comfort food under pressure. It catches up with you.", category: "food", effects: { fun: 4, health: -7, happiness: -2 }, storyTag: "junkfood" },
       { id: "travel", label: "Family travel", icon: "✈️", desc: "Travel with the family. Priceless memories.", category: "fun", effects: { fun: 8, happiness: 6, wealth: -6 }, storyTag: "travel" },
       { id: "mentor", label: "Mentor others", icon: "🤝", desc: "Guide younger people. Meaning and wisdom both grow.", category: "social", effects: { happiness: 6, smarts: 4 }, storyTag: "mentor" },
+      { id: "upskill", label: "Upskill", icon: "📚", desc: "Keep learning at work — stay sharp and lift your earnings.", category: "smarts", effects: { smarts: 6, fun: -2 }, storyTag: "upskill" },
     ],
   },
   {
@@ -210,6 +221,7 @@ export const STAGES: Stage[] = [
     ageEnd: 70,
     blurb: "Ages 55–70. Slow down, savour family, and protect your health.",
     theme: themes.senior,
+    atHome: true,
     options: [
       { id: "walk", label: "Daily walks", icon: "🚶", desc: "Gentle walks keep the heart and mood strong.", category: "health", effects: { health: 8, happiness: 3 }, storyTag: "exercise" },
       { id: "grandkids", label: "Grandkids", icon: "👵", desc: "Time with grandchildren. The sweetest happiness.", category: "social", effects: { happiness: 9, health: 2 }, storyTag: "grandkids" },
@@ -228,6 +240,7 @@ export const STAGES: Stage[] = [
     ageEnd: 82,
     blurb: "Ages 70+. The reward for a life well lived. Enjoy every day.",
     theme: themes.sunset,
+    atHome: true,
     options: [
       { id: "travel", label: "See the world", icon: "✈️", desc: "Finally travel everywhere you dreamed of.", category: "fun", effects: { fun: 9, happiness: 6, wealth: -6 }, storyTag: "travel" },
       { id: "garden", label: "Gardening", icon: "🌱", desc: "Tend a garden. Gentle exercise and quiet pride.", category: "health", effects: { health: 7, happiness: 4 }, storyTag: "exercise" },

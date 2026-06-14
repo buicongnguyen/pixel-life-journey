@@ -1,5 +1,5 @@
-import type { HistoryEntry, Partner, Stats } from "./types";
-import { verdict } from "./stats";
+import type { Gender, HistoryEntry, Occupation, Partner, Stats } from "./types";
+import { verdict, weightStatus } from "./stats";
 
 // ---------------------------------------------------------------------------
 // The life-story writer. At the end of the game we turn the recorded choices
@@ -17,6 +17,10 @@ export interface StoryInput {
   deathAge: number;
   cause: CauseOfEnd;
   hadChild: boolean;
+  gender: Gender;
+  weight: number;
+  occupation: Occupation | null;
+  homeQuality: number;
 }
 
 export interface LifeStory {
@@ -67,6 +71,10 @@ const TAG_CLAUSES: Record<string, string> = {
   volunteer: "gave back by volunteering",
   reflect: "reflected on a life well lived",
   rest: "rested and savoured the calm",
+  toy_car: "raced your toy cars everywhere",
+  toy_doll: "treasured your dolls and toys",
+  toy_phone: "were always on your phone",
+  upskill: "kept learning new skills at work",
 };
 
 /** The pre-written "why it mattered" notes — the heart of the storytelling. */
@@ -92,6 +100,8 @@ const TAG_NOTE: Record<string, string> = {
   grandkids: " — the sweetest happiness of all",
   community: " — because connection keeps people alive and well",
   gaming: " — though the hours added up",
+  toy_phone: " — though the screen ate your hours",
+  upskill: " — and it steadily lifted your earnings",
 };
 
 interface Era {
@@ -112,6 +122,8 @@ function dominantTags(history: HistoryEntry[], stageIds: string[], n: number): s
   for (const h of history) {
     if (!h.storyTag) continue;
     if (!stageIds.includes(h.stageId)) continue;
+    // job & house are narrated by their own paragraph, so keep them out of eras
+    if (h.storyTag.startsWith("job_") || h.storyTag === "home") continue;
     counts.set(h.storyTag, (counts.get(h.storyTag) ?? 0) + 1);
   }
   return [...counts.entries()]
@@ -133,11 +145,13 @@ function joinClauses(tags: string[]): string {
 
 export function generateStory(input: StoryInput): LifeStory {
   const { history, finalStats, partner, deathAge, cause, hadChild } = input;
+  const { gender, weight, occupation, homeQuality } = input;
   const paragraphs: string[] = [];
 
   // Opening
+  const child = gender === "female" ? "girl" : "boy";
   paragraphs.push(
-    `You were born into the world full of promise. Over ${Math.round(
+    `A baby ${child} was born, full of promise. Over ${Math.round(
       deathAge
     )} years, here is the life you lived.`
   );
@@ -149,6 +163,10 @@ export function generateStory(input: StoryInput): LifeStory {
     const cap = era.phrase.charAt(0).toUpperCase() + era.phrase.slice(1);
     paragraphs.push(`${cap}: you ${joinClauses(tags)}.`);
   }
+
+  // Work + home
+  const work = workHomeParagraph(occupation, homeQuality);
+  if (work) paragraphs.push(work);
 
   // Partner + family
   if (partner) {
@@ -166,8 +184,8 @@ export function generateStory(input: StoryInput): LifeStory {
     );
   }
 
-  // The verdict on the five meters
-  paragraphs.push(verdictParagraph(finalStats));
+  // The verdict on the meters (incl. fitness)
+  paragraphs.push(verdictParagraph(finalStats, weight));
 
   // How it ended
   paragraphs.push(endingParagraph(cause, deathAge, finalStats));
@@ -177,6 +195,25 @@ export function generateStory(input: StoryInput): LifeStory {
     paragraphs,
     epitaph: epitaphFor(finalStats, cause),
   };
+}
+
+function workHomeParagraph(occupation: Occupation | null, homeQuality: number): string | null {
+  if (!occupation && homeQuality === 0) return null;
+  const parts: string[] = [];
+  if (occupation) {
+    const art = /^[aeiou]/i.test(occupation.name) ? "an" : "a";
+    parts.push(`You made your living as ${art} ${occupation.name.toLowerCase()}`);
+  }
+  if (homeQuality > 0) {
+    const homes: Record<number, string> = {
+      1: "and lived in a cramped little flat with cracks in the walls",
+      2: "and made a cosy house your home",
+      3: "and settled into a lovely, bright home",
+      4: "and lived in a grand house befitting your success",
+    };
+    parts.push((occupation ? "" : "You ") + homes[homeQuality]);
+  }
+  return parts.join(" ").replace(/^You and/, "You") + ".";
 }
 
 function partnerLine(p: Partner): string {
@@ -194,7 +231,7 @@ function partnerLine(p: Partner): string {
   return (key && map[key]) ?? "They were by your side through it all.";
 }
 
-function verdictParagraph(s: Stats): string {
+function verdictParagraph(s: Stats, weight: number): string {
   const parts: string[] = [];
   const wv = verdict(s.wealth);
   const hv = verdict(s.happiness);
@@ -227,7 +264,16 @@ function verdictParagraph(s: Stats): string {
       : "— book-smarts were never your thing."
   );
   // the smarts clause always begins with "—"; tidy the comma before it
-  return parts.join(", ").replace(", —", " —");
+  let para = parts.join(", ").replace(", —", " —");
+  // a note on how you carried your body through life
+  const ws = weightStatus(weight);
+  const fit: Record<string, string> = {
+    healthy: " You kept yourself fit and well-fed throughout.",
+    overweight: " The years of rich food showed on your frame.",
+    obese: " Years of overeating left you heavy, and it cost your health.",
+    underweight: " You stayed thin, sometimes too thin for your own good.",
+  };
+  return para + fit[ws];
 }
 
 function endingParagraph(cause: CauseOfEnd, age: number, s: Stats): string {

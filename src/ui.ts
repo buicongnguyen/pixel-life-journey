@@ -16,9 +16,11 @@ export interface UIRefs {
   ageLabel: HTMLElement;
   leLabel: HTMLElement;
   bars: Record<StatKey, { fill: HTMLElement; val: HTMLElement }>;
+  weightBar: { fill: HTMLElement; val: HTMLElement };
   warn: HTMLElement;
   focusPanel: HTMLElement;
   hint: HTMLElement;
+  timeTravel: HTMLElement;
   overlay: HTMLElement;
   touch: Record<"up" | "down" | "left" | "right" | "act", HTMLElement>;
 }
@@ -64,6 +66,17 @@ export function createUI(mount: HTMLElement): UIRefs {
     barsRow.append(item);
     bars[k] = { fill, val };
   }
+  // 6th meter: body weight (colour shows healthy/over/under, not "more is better")
+  const wItem = el("div", "plj-bar");
+  wItem.title = "Weight";
+  const wIcon = el("span", "plj-bar-icon", "⚖️");
+  const wTrack = el("div", "plj-bar-track");
+  const wFill = el("div", "plj-bar-fill");
+  const wVal = el("span", "plj-bar-val", "50");
+  wTrack.append(wFill);
+  wItem.append(wIcon, wTrack, wVal);
+  barsRow.append(wItem);
+  const weightBar = { fill: wFill, val: wVal };
   hud.append(topRow, barsRow);
 
   // --- canvas ---------------------------------------------------------------
@@ -75,7 +88,9 @@ export function createUI(mount: HTMLElement): UIRefs {
   ctx.imageSmoothingEnabled = false;
   const warn = el("div", "plj-warn", "⚠️ Your health is failing!");
   const hint = el("div", "plj-hint");
-  stage.append(canvas, warn, hint);
+  const timeTravel = el("button", "plj-timetravel", "⏳");
+  timeTravel.title = "Time travel (T)";
+  stage.append(canvas, warn, hint, timeTravel);
 
   // --- bottom focus panel ---------------------------------------------------
   const focusPanel = el(
@@ -109,9 +124,11 @@ export function createUI(mount: HTMLElement): UIRefs {
     ageLabel,
     leLabel,
     bars,
+    weightBar,
     warn,
     focusPanel,
     hint,
+    timeTravel,
     overlay,
     touch: { up, down, left, right, act },
   };

@@ -77,3 +77,37 @@ export function verdict(value: number): "poor" | "ok" | "good" | "great" {
   if (value < 78) return "good";
   return "great";
 }
+
+// --- Body weight ------------------------------------------------------------
+// Weight is a 0..100 index (think normalised body mass). ~50 is ideal; junk
+// food pushes it up, healthy food and exercise bring it down. Drifting out of
+// the healthy band quietly costs you health — so it feeds back into longevity.
+
+export const START_WEIGHT = 50;
+export const WEIGHT_IDEAL_LOW = 40;
+export const WEIGHT_IDEAL_HIGH = 64;
+
+export type WeightStatus = "underweight" | "healthy" | "overweight" | "obese";
+
+export function weightStatus(w: number): WeightStatus {
+  if (w < WEIGHT_IDEAL_LOW - 12) return "underweight";
+  if (w <= WEIGHT_IDEAL_HIGH) return "healthy";
+  if (w <= WEIGHT_IDEAL_HIGH + 18) return "overweight";
+  return "obese";
+}
+
+export function weightColor(w: number): string {
+  switch (weightStatus(w)) {
+    case "healthy": return "#3ddc84";
+    case "overweight": return "#ffb74d";
+    case "underweight": return "#7fc9ff";
+    case "obese": return "#ff5d6c";
+  }
+}
+
+/** Extra per-action health drain when weight is outside the healthy band. */
+export function weightHealthDrain(w: number): number {
+  if (w > WEIGHT_IDEAL_HIGH) return (w - WEIGHT_IDEAL_HIGH) * 0.06;
+  if (w < WEIGHT_IDEAL_LOW) return (WEIGHT_IDEAL_LOW - w) * 0.05;
+  return 0;
+}

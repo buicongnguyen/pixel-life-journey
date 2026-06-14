@@ -11,18 +11,34 @@ them in balance, and at the very end the game writes the **story of the life you
 
 ## 🎮 How to play
 
-1. Walk around each room with the **arrow keys / WASD** (or the on-screen D-pad on a phone).
+1. **Pick boy or girl** at birth, then walk around each room with the **arrow keys / WASD**
+   (or the on-screen D-pad on a phone).
 2. Step onto a glowing **choice** and press **Space** to do it. Each choice changes your
-   meters — ❤️ Health, 😊 Happiness, 💰 Wealth, 🎉 Fun, 🧠 Smarts — and ages you a bit.
+   meters — ❤️ Health, 😊 Happiness, 💰 Wealth, 🎉 Fun, 🧠 Smarts, ⚖️ Weight — and ages you.
 3. When you're old enough, the **door on the right glows** — walk into it to grow up
    into the next stage of life.
-4. **Keep your balance.** Live only on junk food and your health collapses and your life
-   is cut short. Chase money with endless overtime and your fun, happiness and health pay
-   for it. Marry well, study hard, stay healthy.
-5. At the end, read your **life story** — then live another.
+4. **Keep your balance.** Live on junk food and your weight climbs and your health
+   collapses. Chase money with endless overtime and your fun, happiness and health pay for
+   it. Study hard to unlock better-paid careers, buy the nicest home you can afford, marry
+   well, stay active.
+5. Changed your mind? Tap the **⏳ time-travel pill** (or press `T`) to jump back to any
+   age and re-live from there.
+6. At the end, read your **life story** — then live another.
 
 > The little `~78y` next to your age is your **life expectancy**. It rises and falls with
-> how well you look after your health.
+> how well you look after your health and weight.
+
+## ✨ What you control
+
+- **👦/👧 Gender** at birth (changes your character and story).
+- **🧸 Toys** — toy car, doll, smartphone — each a different childhood trade-off.
+- **⚖️ Weight** — a live meter; junk food piles it on, exercise burns it off, and being
+  over- or under-weight quietly costs you health.
+- **💼 Occupation** — choose a career (Doctor, Engineer, Teacher, Artist…). Your salary =
+  the job × how smart you are, and the best jobs are locked until you're smart enough.
+- **🏠 A house** — buy what you can afford; a grand home is bright, a cheap one is cracked
+  and run-down, and it becomes the backdrop of the rest of your life.
+- **⏳ Time travel** — rewind to any past age and try a different life.
 
 ## 🌱 The twelve stages
 
@@ -47,6 +63,13 @@ the same habits that help in real life:
 
 See [`DESIGN.md`](DESIGN.md) for the full balance model, the life-stage graph, every
 option's effects, and the sources.
+
+## 🗺️ Coming next
+
+A **Biography mode**: a guided author flow to recreate a real person's life (name,
+gender, and the choices that actually happened at each stage), plus the ability to add
+your own custom stages and items — so you can record and replay it as the **biography of
+a grandparent, parent, or yourself** to share with family.
 
 ---
 
@@ -76,7 +99,9 @@ src/
 ├── engine.ts      # game state, loop, input, rendering, overlays
 ├── stages.ts      # the 12 life stages + their options (all game content)
 ├── partners.ts    # the 8 marriage candidates
-├── stats.ts       # the meters + research-grounded balance math
+├── occupations.ts # careers + salary multipliers (pay scales with Smarts)
+├── houses.ts      # buyable house tiers + home quality
+├── stats.ts       # the meters (incl. weight) + research-grounded balance math
 ├── story.ts       # the life-story writer (pre-written comment bank)
 ├── sprites.ts     # pixel-art drawing (rooms, the growing character, stations)
 ├── ui.ts          # DOM: HUD, focus panel, touch controls, overlay
