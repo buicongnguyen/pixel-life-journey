@@ -224,11 +224,8 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, cx: number, footY: 
   else drawStanding(ctx, cx, footY, look, walkPhase, moving);
 }
 
-function groundShadow(ctx: CanvasRenderingContext2D, cx: number, footY: number, rx: number): void {
-  ctx.fillStyle = "rgba(0,0,0,0.18)";
-  ctx.beginPath();
-  ctx.ellipse(cx, footY + 1, rx, Math.max(2, rx * 0.22), 0, 0, Math.PI * 2);
-  ctx.fill();
+function groundShadow(_ctx: CanvasRenderingContext2D, _cx: number, _footY: number, _rx: number): void {
+  // Ground shadow removed per request (it read as a black ellipse in front of people).
 }
 
 function drawStanding(ctx: CanvasRenderingContext2D, cx: number, footY: number, look: AvatarLook, walkPhase: number, moving: boolean): void {
@@ -317,10 +314,6 @@ function drawStanding(ctx: CanvasRenderingContext2D, cx: number, footY: number, 
   ctx.quadraticCurveTo(headCx - headW * 0.44, headCy + headH * 0.4, headCx - headW / 2, headCy - headH * 0.08);
   ctx.closePath();
   ctx.fill();
-  ctx.save();
-  ctx.clip();
-  ellipse(ctx, headCx + headW * 0.18, headCy + headH * 0.32, headW * 0.42, headH * 0.24, "rgba(150,108,92,0.16)"); // soft jaw shadow
-  ctx.restore();
   ctx.strokeStyle = OUTLINE;
   ctx.lineWidth = OUTLINE_W;
   ctx.stroke();
@@ -386,14 +379,14 @@ function drawHair(ctx: CanvasRenderingContext2D, hcx: number, hcy: number, hw: n
     stroke();
   }
 
-  // side locks framing the face
+  // side locks hang along the OUTER edge of the face, never across the cheeks
   ctx.fillStyle = hair;
   for (const s of [-1, 1]) {
     ctx.beginPath();
-    ctx.moveTo(hcx + s * hw * 0.5, top + hh * 0.28);
-    ctx.quadraticCurveTo(hcx + s * hw * 0.62, hcy, hcx + s * hw * 0.52, hcy + hh * (longHair ? 0.5 : 0.16));
-    ctx.lineTo(hcx + s * hw * 0.36, hcy + hh * (longHair ? 0.44 : 0.1));
-    ctx.quadraticCurveTo(hcx + s * hw * 0.42, hcy - hh * 0.1, hcx + s * hw * 0.38, top + hh * 0.32);
+    ctx.moveTo(hcx + s * hw * 0.5, top + hh * 0.24);
+    ctx.quadraticCurveTo(hcx + s * hw * 0.66, hcy, hcx + s * hw * 0.6, hcy + hh * (longHair ? 0.42 : 0.1));
+    ctx.lineTo(hcx + s * hw * 0.5, hcy + hh * (longHair ? 0.36 : 0.05));
+    ctx.quadraticCurveTo(hcx + s * hw * 0.54, hcy - hh * 0.12, hcx + s * hw * 0.49, top + hh * 0.28);
     ctx.closePath();
     ctx.fill();
     stroke();
