@@ -147,7 +147,7 @@ const STAGE_PROFILES: BodyProfile[] = [
   { heightPx: 98, headRatio: 0.239, chub: 0.3, baby: false, child: false, elder: true }, // retirement
 ];
 
-const SKIN = "#f3c49a";
+const SKIN = "#fbd6b0";
 const SHIRTS_M = ["#5f93cf", "#69c06a", "#dba93f", "#7b7bce", "#54b3a6", "#dd865a", "#5aa3df", "#67bd8c"];
 const SHIRTS_F = ["#ff9ec0", "#ffb0d6", "#cf9eff", "#ff8fb0", "#b09bff", "#ff9ec9", "#df80cf", "#ff8fc0"];
 
@@ -300,11 +300,14 @@ function drawStanding(ctx: CanvasRenderingContext2D, cx: number, footY: number, 
   ctx.fillRect(cx - neckH * 0.42, torsoTopY - neckH + 1, neckH * 0.84, neckH + headH * 0.12);
   ellipse(ctx, cx, neckTopY + neckH * 0.3, neckH * 0.5, neckH * 0.4, skin);
 
+  // long hair flows behind the head (drawn before the face so it never covers it)
+  drawBackHair(ctx, headCx, headCy, headW, headH, look);
+
   // --- head (anime oval face tapering to a soft chin) ----------------------
-  const hg = ctx.createRadialGradient(headCx - headW * 0.18, headCy - headH * 0.22, headW * 0.15, headCx, headCy, headW * 0.66);
-  hg.addColorStop(0, tint(skin, 14));
-  hg.addColorStop(0.6, skin);
-  hg.addColorStop(1, shade(skin, 14));
+  const hg = ctx.createRadialGradient(headCx - headW * 0.18, headCy - headH * 0.22, headW * 0.15, headCx, headCy, headW * 0.72);
+  hg.addColorStop(0, tint(skin, 8));
+  hg.addColorStop(0.7, skin);
+  hg.addColorStop(1, shade(skin, 6));
   ctx.fillStyle = hg;
   ctx.beginPath();
   ctx.moveTo(headCx - headW / 2, headCy - headH * 0.08);
@@ -330,6 +333,23 @@ function drawStanding(ctx: CanvasRenderingContext2D, cx: number, footY: number, 
   }
 }
 
+/** The long-hair layer that flows behind the head — drawn BEFORE the head. */
+function drawBackHair(ctx: CanvasRenderingContext2D, hcx: number, hcy: number, hw: number, hh: number, look: AvatarLook): void {
+  if (look.hairStyle !== "long") return;
+  const top = hcy - hh / 2;
+  ctx.fillStyle = shade(look.hair, 22);
+  ctx.beginPath();
+  ctx.moveTo(hcx - hw * 0.5, top + hh * 0.2);
+  ctx.quadraticCurveTo(hcx - hw * 0.72, hcy + hh * 0.6, hcx - hw * 0.44, hcy + hh * 1.05);
+  ctx.quadraticCurveTo(hcx, hcy + hh * 1.18, hcx + hw * 0.44, hcy + hh * 1.05);
+  ctx.quadraticCurveTo(hcx + hw * 0.72, hcy + hh * 0.6, hcx + hw * 0.5, top + hh * 0.2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = OUTLINE;
+  ctx.lineWidth = OUTLINE_W;
+  ctx.stroke();
+}
+
 function drawHair(ctx: CanvasRenderingContext2D, hcx: number, hcy: number, hw: number, hh: number, look: AvatarLook): void {
   const hair = look.hair;
   const hairD = shade(hair, 22);
@@ -337,19 +357,8 @@ function drawHair(ctx: CanvasRenderingContext2D, hcx: number, hcy: number, hw: n
   const top = hcy - hh / 2;
   const longHair = look.hairStyle === "long";
   const stroke = (): void => { ctx.strokeStyle = OUTLINE; ctx.lineWidth = OUTLINE_W; ctx.stroke(); };
-
-  // back layer (long hair flowing behind the shoulders)
-  if (longHair) {
-    ctx.fillStyle = hairD;
-    ctx.beginPath();
-    ctx.moveTo(hcx - hw * 0.5, top + hh * 0.3);
-    ctx.quadraticCurveTo(hcx - hw * 0.66, hcy + hh * 0.6, hcx - hw * 0.36, hcy + hh * 1.05);
-    ctx.quadraticCurveTo(hcx, hcy + hh * 1.2, hcx + hw * 0.36, hcy + hh * 1.05);
-    ctx.quadraticCurveTo(hcx + hw * 0.66, hcy + hh * 0.6, hcx + hw * 0.5, top + hh * 0.3);
-    ctx.closePath();
-    ctx.fill();
-    stroke();
-  }
+  // NOTE: the long-hair back layer is drawn earlier, BEHIND the head (drawBackHair),
+  // so it never paints over the face.
 
   // main hair cap with volume above the crown
   ctx.fillStyle = hair;
