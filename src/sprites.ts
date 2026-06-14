@@ -259,6 +259,11 @@ function drawStanding(ctx: CanvasRenderingContext2D, cx: number, footY: number, 
 
   groundShadow(ctx, cx, footY, shoulderW * 0.62);
 
+  // long hair is the very BACK layer — drawn before the whole body so it sits
+  // behind the torso, neck and head (a girl's hair falls behind her, never over
+  // the face nor in front of the chest)
+  drawBackHair(ctx, headCx, headCy, headW, headH, look);
+
   // --- legs ----------------------------------------------------------------
   const stride = swing * H * 0.05;
   const lift = Math.abs(swing) * H * 0.02;
@@ -294,10 +299,6 @@ function drawStanding(ctx: CanvasRenderingContext2D, cx: number, footY: number, 
   taper(ctx, cx, torsoTopY, shoulderW, torsoTopY + torsoH * 0.66, waistW, hgrad(ctx, cx - shoulderW / 2, shoulderW, look.shirt, 22, 22));
   // collar
   ellipse(ctx, cx, torsoTopY + headH * 0.08, headW * 0.3, headH * 0.12, skinD);
-
-  // long hair flows BEHIND the neck and head (drawn before both, so it never
-  // covers the face — a girl's hair sits behind, not framing the cheeks)
-  drawBackHair(ctx, headCx, headCy, headW, headH, look);
 
   // --- neck ----------------------------------------------------------------
   ctx.fillStyle = skinD;
@@ -340,10 +341,16 @@ function drawBackHair(ctx: CanvasRenderingContext2D, hcx: number, hcy: number, h
   const top = hcy - hh / 2;
   ctx.fillStyle = shade(look.hair, 22);
   ctx.beginPath();
-  ctx.moveTo(hcx - hw * 0.5, top + hh * 0.2);
-  ctx.quadraticCurveTo(hcx - hw * 0.72, hcy + hh * 0.6, hcx - hw * 0.44, hcy + hh * 1.05);
-  ctx.quadraticCurveTo(hcx, hcy + hh * 1.18, hcx + hw * 0.44, hcy + hh * 1.05);
-  ctx.quadraticCurveTo(hcx + hw * 0.72, hcy + hh * 0.6, hcx + hw * 0.5, top + hh * 0.2);
+  ctx.moveTo(hcx - hw * 0.48, top + hh * 0.16);
+  // left: poof out past the cheek (only the narrow neck is in front here, so this
+  // is the clearly-visible part) then fall as a long curtain down behind the body
+  ctx.quadraticCurveTo(hcx - hw * 0.86, hcy + hh * 0.5, hcx - hw * 0.82, hcy + hh * 1.05);
+  ctx.quadraticCurveTo(hcx - hw * 0.78, hcy + hh * 1.55, hcx - hw * 0.52, hcy + hh * 1.7);
+  // inner hem scoops up under the chin (this stretch sits behind the torso)
+  ctx.quadraticCurveTo(hcx, hcy + hh * 1.4, hcx + hw * 0.52, hcy + hh * 1.7);
+  // right curtain back up to the crown
+  ctx.quadraticCurveTo(hcx + hw * 0.78, hcy + hh * 1.55, hcx + hw * 0.82, hcy + hh * 1.05);
+  ctx.quadraticCurveTo(hcx + hw * 0.86, hcy + hh * 0.5, hcx + hw * 0.48, top + hh * 0.16);
   ctx.closePath();
   ctx.fill();
   ctx.strokeStyle = OUTLINE;
