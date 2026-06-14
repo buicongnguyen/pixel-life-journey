@@ -82,10 +82,16 @@ export function createUI(mount: HTMLElement): UIRefs {
   // --- canvas ---------------------------------------------------------------
   const stage = el("div", "plj-stage-wrap");
   const canvas = el("canvas", "plj-canvas");
-  canvas.width = 640;
-  canvas.height = 360;
+  // Supersample: draw in a 640x360 coordinate space but back it with a much
+  // larger pixel buffer (≈16× the pixels), then let the browser downscale it
+  // smoothly — giving crisp, high-resolution, anti-aliased art.
+  const SS = 4;
+  canvas.width = 640 * SS;
+  canvas.height = 360 * SS;
   const ctx = canvas.getContext("2d")!;
-  ctx.imageSmoothingEnabled = false;
+  ctx.scale(SS, SS);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
   const warn = el("div", "plj-warn", "⚠️ Your health is failing!");
   const hint = el("div", "plj-hint");
   const timeTravel = el("button", "plj-timetravel", "⏳");

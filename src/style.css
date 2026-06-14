@@ -122,8 +122,7 @@ body {
   inset: 0;
   width: 100%;
   height: 100%;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
+  image-rendering: auto;
   display: block;
 }
 .plj-warn {

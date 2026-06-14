@@ -89,9 +89,11 @@ a grandparent, parent, or yourself** to share with family.
 
 ## 🛠️ Tech
 
-- **Vite + TypeScript** and a hand-rolled **HTML5 Canvas** pixel renderer — no game engine.
+- **Vite + TypeScript** and a hand-rolled **HTML5 Canvas** renderer — no game engine.
 - Zero runtime dependencies; everything runs in the browser, nothing is stored or sent.
-- One internal 480×270 canvas scaled up with `image-rendering: pixelated` for crisp pixels.
+- Characters are drawn with smooth curves + gradients and **age-correct proportions**
+  (a newborn is a big-headed baby; the body matures gradually into an adult, then an
+  elder), on a **supersampled 2560×1440 canvas** (≈16× pixels) for crisp, high-res art.
 
 ## 💻 Develop
 
