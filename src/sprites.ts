@@ -295,13 +295,14 @@ function drawStanding(ctx: CanvasRenderingContext2D, cx: number, footY: number, 
   // collar
   ellipse(ctx, cx, torsoTopY + headH * 0.08, headW * 0.3, headH * 0.12, skinD);
 
+  // long hair flows BEHIND the neck and head (drawn before both, so it never
+  // covers the face — a girl's hair sits behind, not framing the cheeks)
+  drawBackHair(ctx, headCx, headCy, headW, headH, look);
+
   // --- neck ----------------------------------------------------------------
   ctx.fillStyle = skinD;
   ctx.fillRect(cx - neckH * 0.42, torsoTopY - neckH + 1, neckH * 0.84, neckH + headH * 0.12);
   ellipse(ctx, cx, neckTopY + neckH * 0.3, neckH * 0.5, neckH * 0.4, skin);
-
-  // long hair flows behind the head (drawn before the face so it never covers it)
-  drawBackHair(ctx, headCx, headCy, headW, headH, look);
 
   // --- head (anime oval face tapering to a soft chin) ----------------------
   const hg = ctx.createRadialGradient(headCx - headW * 0.18, headCy - headH * 0.22, headW * 0.15, headCx, headCy, headW * 0.72);
@@ -389,25 +390,20 @@ function drawHair(ctx: CanvasRenderingContext2D, hcx: number, hcy: number, hw: n
     stroke();
   }
 
-  // sides: long locks framing the face for women; short sideburns for men
-  ctx.fillStyle = hair;
-  for (const s of [-1, 1]) {
-    ctx.beginPath();
-    if (longHair) {
-      ctx.moveTo(hcx + s * hw * 0.5, top + hh * 0.24);
-      ctx.quadraticCurveTo(hcx + s * hw * 0.66, hcy, hcx + s * hw * 0.6, hcy + hh * 0.42);
-      ctx.lineTo(hcx + s * hw * 0.5, hcy + hh * 0.36);
-      ctx.quadraticCurveTo(hcx + s * hw * 0.54, hcy - hh * 0.12, hcx + s * hw * 0.49, top + hh * 0.28);
-    } else {
-      // short sideburn that stops at ear level — never down the cheek
+  // sides: short sideburns for men only. A girl's long hair is entirely behind
+  // the head (drawBackHair) — no front locks down the cheeks (that looked like a beard).
+  if (!longHair) {
+    ctx.fillStyle = hair;
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
       ctx.moveTo(hcx + s * hw * 0.46, top + hh * 0.28);
       ctx.quadraticCurveTo(hcx + s * hw * 0.56, hcy - hh * 0.18, hcx + s * hw * 0.5, hcy - hh * 0.02);
       ctx.lineTo(hcx + s * hw * 0.42, hcy - hh * 0.05);
       ctx.quadraticCurveTo(hcx + s * hw * 0.46, hcy - hh * 0.22, hcx + s * hw * 0.42, top + hh * 0.3);
+      ctx.closePath();
+      ctx.fill();
+      stroke();
     }
-    ctx.closePath();
-    ctx.fill();
-    stroke();
   }
 
   // glossy highlight band across the crown
