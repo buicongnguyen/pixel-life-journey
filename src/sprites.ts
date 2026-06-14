@@ -420,56 +420,53 @@ function drawHair(ctx: CanvasRenderingContext2D, hcx: number, hcy: number, hw: n
 
 function drawFace(ctx: CanvasRenderingContext2D, hcx: number, hcy: number, hw: number, hh: number, look: AvatarLook): void {
   const big = look.child;
-  const iris = look.gender === "female" ? "#7a4a68" : "#5a4030";
-  const lip = look.gender === "female" ? "#d27a82" : "#b87066";
-  const hairD = shade(look.hair, 8);
-  // clean, modestly-sized eyes placed just below the centre of the face
-  const eyeRx = hw * (big ? 0.15 : 0.125);
-  const eyeRy = eyeRx * 1.32;
+  const iris = look.gender === "female" ? "#7a4a66" : "#574029";
+  const browCol = shade(look.hair, 6);
+  // eyes — clean and symmetric, set at ~55% down the face, about one eye apart
+  const eyeRx = hw * (big ? 0.135 : 0.118);
+  const eyeRy = eyeRx * 1.35;
   const eyeY = hcy + hh * 0.05;
-  const eyeDX = hw * (big ? 0.26 : 0.24);
+  const eyeDX = hw * (big ? 0.23 : 0.215);
 
   for (const s of [-1, 1]) {
     const ex = hcx + s * eyeDX;
-    ellipse(ctx, ex, eyeY, eyeRx * 1.06, eyeRy * 1.08, "#fdf8f6"); // sclera
-    ellipse(ctx, ex, eyeY + eyeRy * 0.08, eyeRx * 0.9, eyeRy * 0.88, iris); // iris
-    ellipse(ctx, ex, eyeY + eyeRy * 0.12, eyeRx * 0.48, eyeRy * 0.54, "#1b1622"); // pupil
-    ellipse(ctx, ex - eyeRx * 0.34, eyeY - eyeRy * 0.32, eyeRx * 0.28, eyeRy * 0.24, "#ffffff"); // highlight
-    // soft upper eyelid line
-    ctx.strokeStyle = "#33283a";
+    ellipse(ctx, ex, eyeY, eyeRx, eyeRy, "#fbf6f4"); // sclera
+    ellipse(ctx, ex, eyeY + eyeRy * 0.18, eyeRx * 0.92, eyeRy * 0.82, iris); // iris sits low
+    ellipse(ctx, ex, eyeY + eyeRy * 0.24, eyeRx * 0.5, eyeRy * 0.5, "#17121d"); // pupil
+    ellipse(ctx, ex - eyeRx * 0.3, eyeY - eyeRy * 0.22, eyeRx * 0.3, eyeRy * 0.26, "#ffffff"); // highlight
+    // upper lash line — a clean dark arc over the top of the eye
+    ctx.strokeStyle = "#2a2030";
     ctx.lineCap = "round";
-    ctx.lineWidth = hw * 0.036;
+    ctx.lineWidth = hw * 0.045;
     ctx.beginPath();
-    ctx.ellipse(ex, eyeY, eyeRx * 1.04, eyeRy * 1.04, 0, Math.PI * 1.16, Math.PI * 1.9);
+    ctx.moveTo(ex - eyeRx * 1.02, eyeY - eyeRy * 0.15);
+    ctx.quadraticCurveTo(ex, eyeY - eyeRy * 1.15, ex + eyeRx * 1.02, eyeY - eyeRy * 0.15);
     ctx.stroke();
-    // brow
-    ctx.strokeStyle = hairD;
+    // brow — short, gentle and relaxed (a soft arch, never a sharp peak)
+    ctx.strokeStyle = browCol;
     ctx.lineWidth = hw * 0.04;
+    const by = eyeY - eyeRy * 1.5;
     ctx.beginPath();
-    ctx.moveTo(ex - eyeRx * 1.05, eyeY - eyeRy * 1.3);
-    ctx.quadraticCurveTo(ex, eyeY - eyeRy * (look.elder ? 1.35 : 1.55), ex + eyeRx * 1.05, eyeY - eyeRy * 1.35);
+    ctx.moveTo(ex - eyeRx * 0.85, by + eyeRy * 0.1);
+    ctx.quadraticCurveTo(ex, by - eyeRy * 0.06, ex + eyeRx * 0.85, by + eyeRy * 0.08);
     ctx.stroke();
   }
-  // nose (a soft short shadow)
-  ctx.strokeStyle = shade(look.skin, 20);
-  ctx.lineWidth = hw * 0.028;
+  // nose — a tiny, centred soft dot
+  ellipse(ctx, hcx, hcy + hh * 0.2, hw * 0.024, hw * 0.02, shade(look.skin, 14));
+  // mouth — a small, symmetric gentle smile
+  ctx.strokeStyle = look.gender === "female" ? "#cf6f7c" : "#a35d54";
   ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(hcx, hcy + hh * 0.13);
-  ctx.lineTo(hcx + hw * 0.035, hcy + hh * 0.22);
-  ctx.stroke();
-  // mouth (gentle smile)
-  ctx.strokeStyle = lip;
   ctx.lineWidth = hw * 0.04;
   ctx.beginPath();
-  ctx.arc(hcx, hcy + hh * 0.27, hw * 0.15, 0.12 * Math.PI, 0.88 * Math.PI);
+  ctx.moveTo(hcx - hw * 0.09, hcy + hh * 0.3);
+  ctx.quadraticCurveTo(hcx, hcy + hh * 0.35, hcx + hw * 0.09, hcy + hh * 0.3);
   ctx.stroke();
   // subtle cheeks for kids and women
   if (big || look.gender === "female") {
-    ctx.fillStyle = "rgba(255,150,165,0.24)";
+    ctx.fillStyle = "rgba(255,150,165,0.22)";
     ctx.beginPath();
-    ctx.ellipse(hcx - hw * 0.32, hcy + hh * 0.16, hw * 0.1, hh * 0.05, 0, 0, Math.PI * 2);
-    ctx.ellipse(hcx + hw * 0.32, hcy + hh * 0.16, hw * 0.1, hh * 0.05, 0, 0, Math.PI * 2);
+    ctx.ellipse(hcx - hw * 0.33, hcy + hh * 0.18, hw * 0.1, hh * 0.045, 0, 0, Math.PI * 2);
+    ctx.ellipse(hcx + hw * 0.33, hcy + hh * 0.18, hw * 0.1, hh * 0.045, 0, 0, Math.PI * 2);
     ctx.fill();
   }
   // elder glasses
@@ -478,12 +475,12 @@ function drawFace(ctx: CanvasRenderingContext2D, hcx: number, hcy: number, hw: n
     ctx.lineWidth = hw * 0.038;
     for (const s of [-1, 1]) {
       ctx.beginPath();
-      ctx.ellipse(hcx + s * eyeDX, eyeY, eyeRx * 1.5, eyeRy * 1.15, 0, 0, Math.PI * 2);
+      ctx.ellipse(hcx + s * eyeDX, eyeY, eyeRx * 1.55, eyeRy * 1.2, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
     ctx.beginPath();
-    ctx.moveTo(hcx - eyeDX + eyeRx * 1.4, eyeY);
-    ctx.lineTo(hcx + eyeDX - eyeRx * 1.4, eyeY);
+    ctx.moveTo(hcx - eyeDX + eyeRx * 1.45, eyeY);
+    ctx.lineTo(hcx + eyeDX - eyeRx * 1.45, eyeY);
     ctx.stroke();
   }
 }
