@@ -372,13 +372,14 @@ function drawHair(ctx: CanvasRenderingContext2D, hcx: number, hcy: number, hw: n
   ctx.fill();
   stroke();
 
-  // soft fringe locks over the forehead (gentle, rounded tips)
+  // fringe over the forehead — short & neat for men, longer bangs for women
   const locks = look.elder ? 2 : longHair ? 4 : 3;
+  const fringeLen = longHair ? 0.36 : 0.21; // men get a higher hairline (more forehead)
   ctx.fillStyle = hair;
   for (let i = 0; i < locks; i++) {
     const t0 = (i + 0.5) / locks;
     const lx = hcx - hw * 0.4 + hw * 0.8 * t0;
-    const len = top + hh * (0.36 + (i % 2 ? 0.07 : 0.0));
+    const len = top + hh * (fringeLen + (i % 2 ? 0.06 : 0.0));
     ctx.beginPath();
     ctx.moveTo(lx - hw * 0.2, top + hh * 0.08);
     ctx.quadraticCurveTo(lx - hw * 0.04, len + hh * 0.03, lx + hw * 0.04, len);
@@ -388,14 +389,22 @@ function drawHair(ctx: CanvasRenderingContext2D, hcx: number, hcy: number, hw: n
     stroke();
   }
 
-  // side locks hang along the OUTER edge of the face, never across the cheeks
+  // sides: long locks framing the face for women; short sideburns for men
   ctx.fillStyle = hair;
   for (const s of [-1, 1]) {
     ctx.beginPath();
-    ctx.moveTo(hcx + s * hw * 0.5, top + hh * 0.24);
-    ctx.quadraticCurveTo(hcx + s * hw * 0.66, hcy, hcx + s * hw * 0.6, hcy + hh * (longHair ? 0.42 : 0.1));
-    ctx.lineTo(hcx + s * hw * 0.5, hcy + hh * (longHair ? 0.36 : 0.05));
-    ctx.quadraticCurveTo(hcx + s * hw * 0.54, hcy - hh * 0.12, hcx + s * hw * 0.49, top + hh * 0.28);
+    if (longHair) {
+      ctx.moveTo(hcx + s * hw * 0.5, top + hh * 0.24);
+      ctx.quadraticCurveTo(hcx + s * hw * 0.66, hcy, hcx + s * hw * 0.6, hcy + hh * 0.42);
+      ctx.lineTo(hcx + s * hw * 0.5, hcy + hh * 0.36);
+      ctx.quadraticCurveTo(hcx + s * hw * 0.54, hcy - hh * 0.12, hcx + s * hw * 0.49, top + hh * 0.28);
+    } else {
+      // short sideburn that stops at ear level — never down the cheek
+      ctx.moveTo(hcx + s * hw * 0.46, top + hh * 0.28);
+      ctx.quadraticCurveTo(hcx + s * hw * 0.56, hcy - hh * 0.18, hcx + s * hw * 0.5, hcy - hh * 0.02);
+      ctx.lineTo(hcx + s * hw * 0.42, hcy - hh * 0.05);
+      ctx.quadraticCurveTo(hcx + s * hw * 0.46, hcy - hh * 0.22, hcx + s * hw * 0.42, top + hh * 0.3);
+    }
     ctx.closePath();
     ctx.fill();
     stroke();
