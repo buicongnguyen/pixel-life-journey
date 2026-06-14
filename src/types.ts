@@ -20,12 +20,44 @@ export type OptionCategory =
   | "rest"
   | "special";
 
+/** A person you can interact with in a room — drawn as a little character. */
+export type PersonKind =
+  | "mother"
+  | "father"
+  | "grandma"
+  | "grandpa"
+  | "sibling"
+  | "playmate"
+  | "studyFriend"
+  | "bestFriend"
+  | "crush"
+  | "roommate"
+  | "coworker"
+  | "boss"
+  | "gymBuddy"
+  | "spouse"
+  | "child"
+  | "grandkid"
+  | "oldFriend";
+
+/** The scenery drawn behind a stage's room. */
+export type SceneKind =
+  | "nursery"
+  | "playroom"
+  | "school"
+  | "campus"
+  | "office"
+  | "home"
+  | "sunset";
+
 export interface LifeOption {
   id: string;
   /** Short label drawn under the station. */
   label: string;
-  /** Emoji icon drawn on the station. */
+  /** Emoji icon drawn on the station (ignored when `person` is set). */
   icon: string;
+  /** If set, this choice is a PERSON drawn as a little character, not a pedestal. */
+  person?: PersonKind;
   /** One-line description shown in the focus panel. */
   desc: string;
   category: OptionCategory;
@@ -63,6 +95,8 @@ export interface Stage {
   ageEnd: number;
   blurb: string;
   theme: RoomTheme;
+  /** Scenery drawn behind this room (school, office, home…). */
+  scene: SceneKind;
   options: LifeOption[];
   /** Marriage stage shows a partner picker before the room loads. */
   isMarriage?: boolean;

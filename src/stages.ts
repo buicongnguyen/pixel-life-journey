@@ -2,24 +2,27 @@ import type { RoomTheme, Stage } from "./types";
 
 // ---------------------------------------------------------------------------
 // The 12 life stages, each a "room" the player walks into. Everything is data:
-// to add an option, drop a new entry in a stage's `options` array; to add a
-// whole new stage of life, add a Stage object here (and a node in DESIGN.md).
-// Effects are deltas applied to the 0..100 meters. See DESIGN.md for the
-// balance reasoning behind the magnitudes.
+// add an option (an activity OR a `person` to bond with) to a stage's array, or
+// add a whole Stage. Effects are deltas on the 0..100 meters. See DESIGN.md.
+//
+// Options with a `person` field are drawn as little characters you walk up to —
+// the people in your life at each stage (parents, friends, a crush, coworkers,
+// a spouse, grandkids…). Some only appear in context (spouse while married,
+// kids once you've had them) — see engine `optionAvailable`.
 // ---------------------------------------------------------------------------
 
 const themes: Record<string, RoomTheme> = {
   nursery: { wall: "#f4cfe0", wallShade: "#e6b6ce", floor: "#cfe4ff", floorShade: "#b4d2f3", accent: "#ff9ecb" },
-  play: { wall: "#274b6b", wallShade: "#1f3c57", floor: "#3f7ca8", floorShade: "#356a90", accent: "#ffd23f" },
-  yard: { wall: "#2e5d4a", wallShade: "#24493a", floor: "#4f9e7a", floorShade: "#428566", accent: "#ffe08a" },
-  school: { wall: "#5a3f6b", wallShade: "#4a3358", floor: "#9e6f4f", floorShade: "#855e42", accent: "#7fd0ff" },
-  teen: { wall: "#3b3b6b", wallShade: "#2f2f58", floor: "#6b6bb0", floorShade: "#5a5a95", accent: "#ff8fd0" },
-  campus: { wall: "#6b5a3f", wallShade: "#584a33", floor: "#b08f5a", floorShade: "#95784a", accent: "#7fd0ff" },
-  office: { wall: "#42505e", wallShade: "#35404b", floor: "#6e8190", floorShade: "#5b6c79", accent: "#3ddc84" },
-  home: { wall: "#6b4242", wallShade: "#583535", floor: "#b07a5a", floorShade: "#95664a", accent: "#ff8fa3" },
-  mid: { wall: "#4a4a5e", wallShade: "#3c3c4d", floor: "#7a7a95", floorShade: "#66667d", accent: "#ffd23f" },
-  senior: { wall: "#5e5240", wallShade: "#4d4334", floor: "#9e8c6b", floorShade: "#85765a", accent: "#ffc488" },
-  sunset: { wall: "#6b4a5e", wallShade: "#583c4d", floor: "#b07a95", floorShade: "#95667d", accent: "#ffd6a8" },
+  play: { wall: "#2f5d7a", wallShade: "#244a61", floor: "#3f7ca8", floorShade: "#356a90", accent: "#ffd23f" },
+  yard: { wall: "#2e6d54", wallShade: "#245442", floor: "#4f9e7a", floorShade: "#428566", accent: "#ffe08a" },
+  school: { wall: "#6a4f7e", wallShade: "#553f66", floor: "#9e6f4f", floorShade: "#855e42", accent: "#7fd0ff" },
+  teen: { wall: "#42427a", wallShade: "#343466", floor: "#6b6bb0", floorShade: "#5a5a95", accent: "#ff8fd0" },
+  campus: { wall: "#7a663f", wallShade: "#5e5033", floor: "#b08f5a", floorShade: "#95784a", accent: "#7fd0ff" },
+  office: { wall: "#46586a", wallShade: "#374554", floor: "#6e8190", floorShade: "#5b6c79", accent: "#3ddc84" },
+  home: { wall: "#7a4a4a", wallShade: "#5f3a3a", floor: "#b07a5a", floorShade: "#95664a", accent: "#ff8fa3" },
+  mid: { wall: "#52526a", wallShade: "#42425a", floor: "#7a7a95", floorShade: "#66667d", accent: "#ffd23f" },
+  senior: { wall: "#6a5d48", wallShade: "#564b3a", floor: "#9e8c6b", floorShade: "#85765a", accent: "#ffc488" },
+  sunset: { wall: "#7a546a", wallShade: "#63445a", floor: "#b07a95", floorShade: "#95667d", accent: "#ffd6a8" },
 };
 
 export const STAGES: Stage[] = [
@@ -29,14 +32,18 @@ export const STAGES: Stage[] = [
     emoji: "👶",
     ageStart: 0,
     ageEnd: 1,
-    blurb: "Just born! Drink, sleep and feel loved to grow up strong.",
+    blurb: "Just born! Drink, sleep, and soak up your family's love.",
     theme: themes.nursery,
+    scene: "nursery",
     options: [
       { id: "milk", label: "Milk", icon: "🍼", desc: "Drink lots of milk — builds a strong, healthy body.", category: "food", effects: { health: 8, happiness: 4 }, storyTag: "milk" },
       { id: "nap", label: "Nap", icon: "😴", desc: "Sleep soundly. Babies grow in their sleep.", category: "rest", effects: { health: 7, fun: 2 }, storyTag: "sleep_baby" },
-      { id: "cuddle", label: "Cuddle", icon: "🤱", desc: "Cuddles from family. Love makes a happy baby.", category: "social", effects: { happiness: 8, health: 3 }, storyTag: "cuddle" },
       { id: "babble", label: "Babble", icon: "🗣️", desc: "Babble and listen — your little brain is forming words.", category: "smarts", effects: { smarts: 6, happiness: 2 }, storyTag: "babble" },
       { id: "rattle", label: "Rattle", icon: "🪀", desc: "Shake the rattle. Pure baby joy.", category: "fun", effects: { fun: 8, happiness: 2 }, storyTag: "play_baby" },
+      { id: "mum", label: "Mum", icon: "👩", person: "mother", desc: "Snuggle in Mum's arms — warmth, safety and love.", category: "social", effects: { happiness: 8, health: 4 }, storyTag: "family_love" },
+      { id: "dad", label: "Dad", icon: "👨", person: "father", desc: "Dad lifts you high — giggles all round.", category: "social", effects: { happiness: 6, fun: 4 }, storyTag: "family_love" },
+      { id: "grandma", label: "Grandma", icon: "👵", person: "grandma", desc: "Grandma hums you gentle lullabies.", category: "social", effects: { happiness: 6, smarts: 2 }, storyTag: "family_love" },
+      { id: "grandpa", label: "Grandpa", icon: "👴", person: "grandpa", desc: "Grandpa rocks you with quiet old stories.", category: "social", effects: { happiness: 5, smarts: 3 }, storyTag: "family_love" },
     ],
   },
   {
@@ -47,15 +54,17 @@ export const STAGES: Stage[] = [
     ageEnd: 3,
     blurb: "Ages 2–3. Curious and wobbly. Everything is new!",
     theme: themes.play,
+    scene: "playroom",
     options: [
       { id: "fruit", label: "Fruit", icon: "🍓", desc: "Healthy fruit snacks — great for a growing body.", category: "food", effects: { health: 8 }, storyTag: "veggies" },
       { id: "candy", label: "Candy", icon: "🍬", desc: "Sweet treats. Fun now, not so good for you.", category: "food", effects: { fun: 8, health: -6 }, storyTag: "junkfood" },
       { id: "blocks", label: "Blocks", icon: "🧱", desc: "Stack blocks — learning shapes and patience.", category: "smarts", effects: { smarts: 7, fun: 3 }, storyTag: "play_learn" },
       { id: "cartoons", label: "Cartoons", icon: "📺", desc: "Watch cartoons. Fun, but too much dulls the mind.", category: "fun", effects: { fun: 7, smarts: -2 }, storyTag: "screen" },
       { id: "slide", label: "Playground", icon: "🛝", desc: "Run and slide outside — active and joyful.", category: "health", effects: { health: 5, fun: 5 }, storyTag: "play_active" },
-      { id: "hug", label: "Family hug", icon: "🤗", desc: "Warm family hugs build a secure, happy child.", category: "social", effects: { happiness: 7, health: 2 }, storyTag: "family_love" },
       { id: "toycar", label: "Toy car", icon: "🚗", desc: "Zoom toy cars around — imaginative, hands-on play.", category: "fun", effects: { fun: 6, smarts: 3 }, storyTag: "toy_car" },
       { id: "doll", label: "Doll", icon: "🧸", desc: "Cuddle a doll or teddy — gentle, nurturing play.", category: "social", effects: { happiness: 6, fun: 3 }, storyTag: "toy_doll" },
+      { id: "mum", label: "Mum", icon: "👩", person: "mother", desc: "Read picture books on Mum's lap.", category: "social", effects: { happiness: 7, smarts: 3 }, storyTag: "family_love" },
+      { id: "playmate", label: "Playmate", icon: "🧒", person: "playmate", desc: "Toddle after a little friend at the park.", category: "social", effects: { happiness: 6, fun: 4, health: 2 }, storyTag: "friends" },
     ],
   },
   {
@@ -66,6 +75,7 @@ export const STAGES: Stage[] = [
     ageEnd: 7,
     blurb: "Ages 3–7. Play, stories and your first big questions.",
     theme: themes.yard,
+    scene: "playroom",
     options: [
       { id: "books", label: "Story books", icon: "📚", desc: "Picture books spark imagination and early smarts.", category: "smarts", effects: { smarts: 8, happiness: 2 }, storyTag: "read" },
       { id: "veg", label: "Veggies", icon: "🥦", desc: "Eat your vegetables — fuel for a healthy body.", category: "food", effects: { health: 8 }, storyTag: "veggies" },
@@ -73,8 +83,9 @@ export const STAGES: Stage[] = [
       { id: "bike", label: "Ride bike", icon: "🚲", desc: "Learn to ride a bike — active fun outdoors.", category: "health", effects: { health: 6, fun: 4 }, storyTag: "sports" },
       { id: "music", label: "Music", icon: "🎵", desc: "Sing and dance to music. Pure happiness.", category: "fun", effects: { happiness: 6, fun: 4 }, storyTag: "music" },
       { id: "games", label: "Video games", icon: "🎮", desc: "Play video games. Loads of fun, a bit sedentary.", category: "fun", effects: { fun: 8, health: -3 }, storyTag: "gaming" },
-      { id: "friends", label: "Playdates", icon: "👫", desc: "Make friends. Good company, good heart.", category: "social", effects: { happiness: 6, health: 2 }, storyTag: "friends" },
       { id: "doll", label: "Toys", icon: "🧸", desc: "Dolls and action figures — hours of make-believe.", category: "fun", effects: { happiness: 5, fun: 4 }, storyTag: "toy_doll" },
+      { id: "playmate", label: "Playmate", icon: "🧒", person: "playmate", desc: "Build a fort with your best little friend.", category: "social", effects: { happiness: 6, fun: 4, health: 2 }, storyTag: "friends" },
+      { id: "sibling", label: "Sibling", icon: "🧑", person: "sibling", desc: "Play (and squabble) with your brother or sister.", category: "social", effects: { happiness: 5, fun: 4 }, storyTag: "friends" },
     ],
   },
   {
@@ -85,6 +96,7 @@ export const STAGES: Stage[] = [
     ageEnd: 11,
     blurb: "Ages 7–11. Reading, recess and your first report card.",
     theme: themes.school,
+    scene: "school",
     options: [
       { id: "study", label: "Study", icon: "📖", desc: "Do your homework. Smarts open doors later.", category: "smarts", effects: { smarts: 9, fun: -2 }, storyTag: "study" },
       { id: "sports", label: "Sports", icon: "⚽", desc: "Join a sports team — healthy and social.", category: "health", effects: { health: 8, fun: 3 }, storyTag: "sports" },
@@ -92,8 +104,9 @@ export const STAGES: Stage[] = [
       { id: "music", label: "Music class", icon: "🎹", desc: "Learn an instrument — clever and joyful.", category: "smarts", effects: { smarts: 4, happiness: 5 }, storyTag: "music" },
       { id: "lunch", label: "Healthy lunch", icon: "🥗", desc: "A balanced lunch keeps you sharp and well.", category: "food", effects: { health: 7 }, storyTag: "veggies" },
       { id: "junk", label: "Fast food", icon: "🍔", desc: "Burgers and fries. Yummy but unhealthy.", category: "food", effects: { fun: 6, health: -6 }, storyTag: "junkfood" },
-      { id: "friends", label: "Friends", icon: "🧑‍🤝‍🧑", desc: "Hang out with friends. Belonging feels great.", category: "social", effects: { happiness: 7, health: 2 }, storyTag: "friends" },
       { id: "phone", label: "Smartphone", icon: "📱", desc: "Your first phone. Fun and connected — but a real time-sink.", category: "fun", effects: { fun: 7, happiness: 3, health: -2, smarts: -2 }, storyTag: "toy_phone" },
+      { id: "studyFriend", label: "Study pal", icon: "🧑‍🎓", person: "studyFriend", desc: "Do homework with a friend — you both learn more.", category: "smarts", effects: { smarts: 5, happiness: 4 }, storyTag: "friends" },
+      { id: "playmate", label: "Friends", icon: "🧒", person: "playmate", desc: "Tag and hopscotch at recess with your gang.", category: "social", effects: { happiness: 7, health: 2, fun: 3 }, storyTag: "friends" },
     ],
   },
   {
@@ -104,15 +117,17 @@ export const STAGES: Stage[] = [
     ageEnd: 14,
     blurb: "Ages 11–14. Bigger ideas, big feelings, late nights.",
     theme: themes.teen,
+    scene: "school",
     options: [
       { id: "study", label: "Study hard", icon: "📚", desc: "Hit the books. Builds real smarts for high school.", category: "smarts", effects: { smarts: 9, fun: -3 }, storyTag: "study" },
       { id: "sports", label: "Sports", icon: "🏀", desc: "Team sports — fit body, happy mind.", category: "health", effects: { health: 8, happiness: 3 }, storyTag: "sports" },
       { id: "gaming", label: "All-night gaming", icon: "🎮", desc: "Game till dawn. Huge fun, wrecks your sleep.", category: "fun", effects: { fun: 9, health: -5 }, storyTag: "gaming" },
       { id: "band", label: "Band / Music", icon: "🎸", desc: "Play in a band. Cool, creative and happy.", category: "fun", effects: { happiness: 6, fun: 4 }, storyTag: "music" },
-      { id: "read", label: "Read books", icon: "📖", desc: "Read for fun — quietly makes you smarter.", category: "smarts", effects: { smarts: 7 }, storyTag: "read" },
       { id: "sleep", label: "Good sleep", icon: "😴", desc: "Sleep early. The best fuel for body and brain.", category: "rest", effects: { health: 7, smarts: 2 }, storyTag: "sleep" },
       { id: "soda", label: "Snacks & soda", icon: "🥤", desc: "Chips and fizzy drinks. Fun but sugary.", category: "food", effects: { fun: 6, health: -6 }, storyTag: "junkfood" },
       { id: "phone", label: "Smartphone", icon: "📱", desc: "Glued to your phone. Social and fun, but distracting.", category: "fun", effects: { fun: 8, happiness: 2, health: -3, smarts: -3 }, storyTag: "toy_phone" },
+      { id: "bestFriend", label: "Best friend", icon: "🧑‍🤝‍🧑", person: "bestFriend", desc: "An inseparable best friend who has your back.", category: "social", effects: { happiness: 8, health: 2 }, storyTag: "friends" },
+      { id: "crush", label: "First crush", icon: "😊", person: "crush", desc: "A nervous, giddy first crush. Butterflies everywhere.", category: "social", effects: { happiness: 9, fun: 3, smarts: -2 }, storyTag: "love" },
     ],
   },
   {
@@ -123,14 +138,16 @@ export const STAGES: Stage[] = [
     ageEnd: 18,
     blurb: "Ages 14–18. Exams, parties, first love and big choices.",
     theme: themes.school,
+    scene: "school",
     options: [
       { id: "exams", label: "Study exams", icon: "📝", desc: "Cram for exams. Smarts now decide your future — but it's draining.", category: "smarts", effects: { smarts: 10, fun: -3, happiness: -2 }, storyTag: "study" },
       { id: "party", label: "Party", icon: "🎉", desc: "Party with friends. Wild fun, costs sleep and cash.", category: "fun", effects: { fun: 9, happiness: 4, health: -4, wealth: -4 }, storyTag: "party" },
       { id: "sports", label: "Sports", icon: "🏈", desc: "Stay on the team — strong and confident.", category: "health", effects: { health: 8, happiness: 2 }, storyTag: "sports" },
       { id: "job", label: "Part-time job", icon: "💵", desc: "Earn your own money. Smarter workers earn more.", category: "wealth", effects: { wealth: 8, fun: -3 }, scalesWithSmarts: true, storyTag: "work_teen" },
-      { id: "love", label: "First love", icon: "💞", desc: "Fall in love. Dizzy, wonderful, a little distracting.", category: "social", effects: { happiness: 9, smarts: -2 }, storyTag: "love" },
       { id: "healthy", label: "Eat healthy", icon: "🥗", desc: "Choose real food over snacks. Your body thanks you.", category: "food", effects: { health: 7 }, storyTag: "veggies" },
       { id: "fastfood", label: "Fast food", icon: "🍟", desc: "Daily fast food. Convenient but it adds up.", category: "food", effects: { fun: 6, health: -6 }, storyTag: "junkfood" },
+      { id: "crush", label: "First love", icon: "💞", person: "crush", desc: "Fall head over heels. Dizzy, wonderful, a little distracting.", category: "social", effects: { happiness: 9, smarts: -2 }, storyTag: "love" },
+      { id: "bestFriend", label: "Best friends", icon: "🧑‍🤝‍🧑", person: "bestFriend", desc: "The friends you'll remember forever.", category: "social", effects: { happiness: 8, health: 2 }, storyTag: "friends" },
     ],
   },
   {
@@ -141,14 +158,16 @@ export const STAGES: Stage[] = [
     ageEnd: 22,
     blurb: "Ages 18–22. Freedom, all-nighters, and who you'll become.",
     theme: themes.campus,
+    scene: "campus",
     options: [
       { id: "lectures", label: "Study", icon: "🎓", desc: "Lectures and the library. A degree pays off for life.", category: "smarts", effects: { smarts: 10, fun: -2 }, storyTag: "study" },
       { id: "intern", label: "Internship", icon: "💼", desc: "Intern in your field — experience plus a pay cheque.", category: "wealth", effects: { wealth: 7, smarts: 4, fun: -3 }, scalesWithSmarts: true, storyTag: "internship" },
       { id: "party", label: "Parties", icon: "🍻", desc: "Campus parties. Memorable, but rough on the body and wallet.", category: "fun", effects: { fun: 9, health: -5, wealth: -4 }, storyTag: "party" },
       { id: "gym", label: "Gym", icon: "🏋️", desc: "Hit the gym. Builds lifelong health.", category: "health", effects: { health: 9, happiness: 2 }, storyTag: "exercise" },
-      { id: "clubs", label: "Clubs", icon: "🧑‍🤝‍🧑", desc: "Join clubs and meet people. Friendships for life.", category: "social", effects: { happiness: 7, fun: 3 }, storyTag: "friends" },
       { id: "travel", label: "Travel", icon: "🌍", desc: "Backpack abroad. Eye-opening fun — but pricey.", category: "fun", effects: { fun: 8, happiness: 5, wealth: -6 }, storyTag: "travel" },
       { id: "ramen", label: "Instant noodles", icon: "🍜", desc: "Live on cheap noodles. Saves money, not your health.", category: "food", effects: { fun: 3, health: -5, wealth: 2 }, storyTag: "junkfood" },
+      { id: "roommate", label: "Roommate", icon: "🧑", person: "roommate", desc: "Late-night talks and instant ramen with your roommate.", category: "social", effects: { happiness: 6, fun: 4 }, storyTag: "friends" },
+      { id: "crush", label: "Romance", icon: "💞", person: "crush", desc: "A serious campus romance. Heady and warm.", category: "social", effects: { happiness: 9, fun: 3 }, storyTag: "love" },
     ],
   },
   {
@@ -159,6 +178,7 @@ export const STAGES: Stage[] = [
     ageEnd: 30,
     blurb: "Ages 22–30. Building a career. Mind the work–life balance!",
     theme: themes.office,
+    scene: "office",
     isCareer: true,
     options: [
       { id: "overtime", label: "Overtime grind", icon: "⏰", desc: "Work 60-hour weeks. Big money — but it burns out your health, fun and joy.", category: "wealth", effects: { wealth: 12, health: -7, fun: -6, happiness: -4 }, scalesWithSmarts: true, storyTag: "overtime" },
@@ -166,10 +186,11 @@ export const STAGES: Stage[] = [
       { id: "side", label: "Side hustle", icon: "💻", desc: "Build a side project for extra cash and skills.", category: "wealth", effects: { wealth: 7, smarts: 2, fun: -3 }, scalesWithSmarts: true, storyTag: "work" },
       { id: "gym", label: "Gym", icon: "🏋️", desc: "Keep training. Health is the foundation of everything.", category: "health", effects: { health: 9 }, storyTag: "exercise" },
       { id: "vacation", label: "Vacation", icon: "🏖️", desc: "Take a real holiday. Recharge body and soul.", category: "fun", effects: { fun: 9, happiness: 6, wealth: -6 }, storyTag: "travel" },
-      { id: "friends", label: "Friends & dates", icon: "🍷", desc: "Nurture friendships and romance. People matter most.", category: "social", effects: { happiness: 7, fun: 3, wealth: -2 }, storyTag: "friends" },
       { id: "desk", label: "Desk fast food", icon: "🍔", desc: "Eat at your desk every day. Quietly erodes your health.", category: "food", effects: { fun: 3, health: -6 }, storyTag: "junkfood" },
       { id: "upskill", label: "Take a course", icon: "📚", desc: "Study evenings to upskill. More Smarts means a bigger salary.", category: "smarts", effects: { smarts: 7, wealth: -3, fun: -2 }, storyTag: "upskill" },
       { id: "house", label: "Buy a house", icon: "🏠", desc: "Buy a home — choose what you can afford. It shapes your whole future.", category: "special", effects: {}, opensHousePicker: true, once: true, storyTag: "home" },
+      { id: "coworker", label: "Coworker", icon: "🧑‍💼", person: "coworker", desc: "Coffee and gossip with a work friend. Networking helps, too.", category: "social", effects: { happiness: 6, fun: 3, wealth: 1 }, storyTag: "friends" },
+      { id: "gymBuddy", label: "Gym buddy", icon: "🏃", person: "gymBuddy", desc: "A workout partner who keeps you going. Fit and social.", category: "health", effects: { health: 7, happiness: 3, fun: 2 }, storyTag: "exercise" },
     ],
   },
   {
@@ -180,16 +201,18 @@ export const STAGES: Stage[] = [
     ageEnd: 36,
     blurb: "Ages 30–36. Settle down, build a family, and grow together.",
     theme: themes.home,
+    scene: "home",
     isMarriage: true,
     atHome: true,
     options: [
       { id: "baby", label: "Have a baby", icon: "👶", desc: "Start a family. Overwhelming love (and a few sleepless years).", category: "special", effects: { happiness: 12, wealth: -6, fun: -4, health: -2 }, once: true, storyTag: "baby" },
-      { id: "family", label: "Family time", icon: "🏡", desc: "Be present at home. The heart of a happy life.", category: "social", effects: { happiness: 8, health: 3 }, storyTag: "family" },
       { id: "date", label: "Date nights", icon: "🌹", desc: "Keep the romance alive with your partner.", category: "fun", effects: { happiness: 6, fun: 5, wealth: -3 }, storyTag: "date" },
       { id: "provide", label: "Work for family", icon: "💼", desc: "Provide for the household. Smarter careers pay more.", category: "wealth", effects: { wealth: 9, fun: -3 }, scalesWithSmarts: true, storyTag: "provide" },
       { id: "meals", label: "Family meals", icon: "🥗", desc: "Cook healthy meals together. Good for everyone.", category: "food", effects: { health: 8, happiness: 2 }, storyTag: "veggies" },
       { id: "house", label: "Buy a home", icon: "🏠", desc: "Buy a house — choose what you can afford. A bigger home, a brighter background.", category: "special", effects: {}, opensHousePicker: true, once: true, storyTag: "home" },
       { id: "active", label: "Stay active", icon: "🚴", desc: "Keep moving as a family. Health habits stick.", category: "health", effects: { health: 8, fun: 2 }, storyTag: "exercise" },
+      { id: "spouse", label: "Spouse", icon: "💑", person: "spouse", desc: "Quiet, happy time with the love of your life.", category: "social", effects: { happiness: 8, health: 3 }, storyTag: "family" },
+      { id: "child", label: "Your child", icon: "🧒", person: "child", desc: "Play and read with your little one.", category: "social", effects: { happiness: 8, fun: 2, health: -1 }, storyTag: "family" },
     ],
   },
   {
@@ -200,6 +223,7 @@ export const STAGES: Stage[] = [
     ageEnd: 55,
     blurb: "Ages 36–55. Career peak and family — but the body needs care now.",
     theme: themes.mid,
+    scene: "home",
     atHome: true,
     options: [
       { id: "career", label: "Career peak", icon: "⏰", desc: "Climb to the top. Great money, hard on an aging body.", category: "wealth", effects: { wealth: 11, health: -6, fun: -4 }, scalesWithSmarts: true, storyTag: "overtime" },
@@ -209,8 +233,9 @@ export const STAGES: Stage[] = [
       { id: "invest", label: "Invest", icon: "📈", desc: "Invest wisely for the future. Knowledge compounds.", category: "wealth", effects: { wealth: 8, fun: -1 }, scalesWithSmarts: true, storyTag: "invest" },
       { id: "stress", label: "Stress eating", icon: "🍩", desc: "Comfort food under pressure. It catches up with you.", category: "food", effects: { fun: 4, health: -7, happiness: -2 }, storyTag: "junkfood" },
       { id: "travel", label: "Family travel", icon: "✈️", desc: "Travel with the family. Priceless memories.", category: "fun", effects: { fun: 8, happiness: 6, wealth: -6 }, storyTag: "travel" },
-      { id: "mentor", label: "Mentor others", icon: "🤝", desc: "Guide younger people. Meaning and wisdom both grow.", category: "social", effects: { happiness: 6, smarts: 4 }, storyTag: "mentor" },
       { id: "upskill", label: "Upskill", icon: "📚", desc: "Keep learning at work — stay sharp and lift your earnings.", category: "smarts", effects: { smarts: 6, fun: -2 }, storyTag: "upskill" },
+      { id: "spouse", label: "Spouse", icon: "💑", person: "spouse", desc: "Grow old together. A partner through midlife's storms.", category: "social", effects: { happiness: 7, health: 3 }, storyTag: "family" },
+      { id: "child", label: "Your kids", icon: "🧑", person: "child", desc: "Raise and guide your growing children.", category: "social", effects: { happiness: 7, smarts: 2 }, storyTag: "family" },
     ],
   },
   {
@@ -221,15 +246,17 @@ export const STAGES: Stage[] = [
     ageEnd: 70,
     blurb: "Ages 55–70. Slow down, savour family, and protect your health.",
     theme: themes.senior,
+    scene: "home",
     atHome: true,
     options: [
       { id: "walk", label: "Daily walks", icon: "🚶", desc: "Gentle walks keep the heart and mood strong.", category: "health", effects: { health: 8, happiness: 3 }, storyTag: "exercise" },
-      { id: "grandkids", label: "Grandkids", icon: "👵", desc: "Time with grandchildren. The sweetest happiness.", category: "social", effects: { happiness: 9, health: 2 }, storyTag: "grandkids" },
       { id: "hobby", label: "Hobbies", icon: "🎣", desc: "Fishing, painting, gardening — unhurried joy.", category: "fun", effects: { fun: 8, happiness: 3 }, storyTag: "hobby" },
       { id: "diet", label: "Healthy diet", icon: "🥗", desc: "Eat well. Good food matters more than ever now.", category: "food", effects: { health: 8 }, storyTag: "veggies" },
       { id: "doctor", label: "Doctor visits", icon: "🩺", desc: "Keep up with the doctor. Prevention is everything.", category: "health", effects: { health: 8 }, storyTag: "checkup" },
       { id: "tv", label: "TV all day", icon: "📺", desc: "Sink into the sofa. Relaxing, but too still.", category: "fun", effects: { fun: 5, health: -5 }, storyTag: "sedentary" },
-      { id: "community", label: "Community", icon: "👫", desc: "Stay social and connected. Loneliness shortens lives.", category: "social", effects: { happiness: 8, health: 3 }, storyTag: "friends" },
+      { id: "grandkid", label: "Grandkids", icon: "👶", person: "grandkid", desc: "Spoil the grandchildren rotten. The sweetest joy.", category: "social", effects: { happiness: 9, health: 2 }, storyTag: "grandkids" },
+      { id: "spouse", label: "Spouse", icon: "💑", person: "spouse", desc: "A lifetime together, hand in hand.", category: "social", effects: { happiness: 7, health: 3 }, storyTag: "family" },
+      { id: "oldFriend", label: "Old friends", icon: "🧓", person: "oldFriend", desc: "Reminisce with lifelong friends. Connection keeps you alive.", category: "social", effects: { happiness: 8, health: 3 }, storyTag: "friends" },
     ],
   },
   {
@@ -240,14 +267,17 @@ export const STAGES: Stage[] = [
     ageEnd: 82,
     blurb: "Ages 70+. The reward for a life well lived. Enjoy every day.",
     theme: themes.sunset,
+    scene: "sunset",
     atHome: true,
     options: [
       { id: "travel", label: "See the world", icon: "✈️", desc: "Finally travel everywhere you dreamed of.", category: "fun", effects: { fun: 9, happiness: 6, wealth: -6 }, storyTag: "travel" },
       { id: "garden", label: "Gardening", icon: "🌱", desc: "Tend a garden. Gentle exercise and quiet pride.", category: "health", effects: { health: 7, happiness: 4 }, storyTag: "exercise" },
-      { id: "family", label: "Family", icon: "👨‍👩‍👧", desc: "Surround yourself with family and grandkids.", category: "social", effects: { happiness: 9, health: 2 }, storyTag: "grandkids" },
       { id: "rest", label: "Rest & relax", icon: "🛋️", desc: "Take it easy. You've earned a peaceful pace.", category: "rest", effects: { health: 5, fun: 2 }, storyTag: "rest" },
       { id: "volunteer", label: "Volunteer", icon: "🤲", desc: "Give back to the community. Purpose keeps you vibrant.", category: "social", effects: { happiness: 7, smarts: 3 }, storyTag: "volunteer" },
       { id: "reflect", label: "Reflect", icon: "📓", desc: "Write your memoirs and reflect. Peace with your story.", category: "smarts", effects: { happiness: 6, smarts: 2 }, storyTag: "reflect" },
+      { id: "grandkid", label: "Grandkids", icon: "👶", person: "grandkid", desc: "Family Sundays full of grandchildren and laughter.", category: "social", effects: { happiness: 9, health: 2 }, storyTag: "grandkids" },
+      { id: "spouse", label: "Spouse", icon: "💑", person: "spouse", desc: "Golden years, side by side.", category: "social", effects: { happiness: 8, health: 3 }, storyTag: "family" },
+      { id: "oldFriend", label: "Old friends", icon: "🧓", person: "oldFriend", desc: "Tea and long memories with dear old friends.", category: "social", effects: { happiness: 7, health: 3 }, storyTag: "friends" },
     ],
   },
 ];

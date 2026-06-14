@@ -82,8 +82,8 @@ export function createUI(mount: HTMLElement): UIRefs {
   // --- canvas ---------------------------------------------------------------
   const stage = el("div", "plj-stage-wrap");
   const canvas = el("canvas", "plj-canvas");
-  canvas.width = 480;
-  canvas.height = 270;
+  canvas.width = 640;
+  canvas.height = 360;
   const ctx = canvas.getContext("2d")!;
   ctx.imageSmoothingEnabled = false;
   const warn = el("div", "plj-warn", "⚠️ Your health is failing!");

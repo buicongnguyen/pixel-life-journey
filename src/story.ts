@@ -21,6 +21,7 @@ export interface StoryInput {
   weight: number;
   occupation: Occupation | null;
   homeQuality: number;
+  widowed: boolean;
 }
 
 export interface LifeStory {
@@ -145,7 +146,7 @@ function joinClauses(tags: string[]): string {
 
 export function generateStory(input: StoryInput): LifeStory {
   const { history, finalStats, partner, deathAge, cause, hadChild } = input;
-  const { gender, weight, occupation, homeQuality } = input;
+  const { gender, weight, occupation, homeQuality, widowed } = input;
   const paragraphs: string[] = [];
 
   // Opening
@@ -178,6 +179,12 @@ export function generateStory(input: StoryInput): LifeStory {
         partner
       )}`
     );
+    if (widowed) {
+      const who = gender === "female" ? "husband" : "wife";
+      paragraphs.push(
+        `In your later years you lost your ${who}, and learned to carry their memory forward.`
+      );
+    }
   } else {
     paragraphs.push(
       "You walked through life as your own person, never marrying — free, and on your own terms."

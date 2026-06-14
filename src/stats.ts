@@ -111,3 +111,31 @@ export function weightHealthDrain(w: number): number {
   if (w < WEIGHT_IDEAL_LOW) return (WEIGHT_IDEAL_LOW - w) * 0.05;
   return 0;
 }
+
+// --- Cross-effects between meters ------------------------------------------
+// Per-action knock-on effects that wire the meters together, so no stat lives
+// in a vacuum (applied every action in addition to the option's own effects).
+
+export interface CrossFx {
+  health: number;
+  happiness: number;
+}
+
+export function crossEffects(s: Stats): CrossFx {
+  let health = 0;
+  let happiness = 0;
+  // poverty is stressful — being broke wears down body and mind
+  if (s.wealth < 20) {
+    health -= 0.3;
+    happiness -= 0.45;
+  }
+  // poor health drags your mood down the sicker you are
+  if (s.health < 40) happiness -= (40 - s.health) * 0.012;
+  // a joyless life (no fun) quietly erodes happiness
+  if (s.fun < 25) happiness -= 0.3;
+  // being smart helps you look after yourself — a small protective effect
+  health += s.smarts * 0.002;
+  // being very wealthy buys comfort, security, better care
+  if (s.wealth > 80) health += 0.1;
+  return { health, happiness };
+}

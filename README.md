@@ -31,6 +31,10 @@ them in balance, and at the very end the game writes the **story of the life you
 ## ✨ What you control
 
 - **👦/👧 Gender** at birth (changes your character and story).
+- **👨‍👩‍👧 The people in your life** — bond with the characters in each room: **Mum, Dad,
+  Grandma, Grandpa** as a baby; **study pals, best friends and a first crush** at school;
+  a **coworker and gym buddy** at work; your **spouse, kids, grandkids and old friends**
+  later on. Connection is one of the biggest drivers of a long, happy life.
 - **🧸 Toys** — toy car, doll, smartphone — each a different childhood trade-off.
 - **⚖️ Weight** — a live meter; junk food piles it on, exercise burns it off, and being
   over- or under-weight quietly costs you health.
@@ -39,6 +43,11 @@ them in balance, and at the very end the game writes the **story of the life you
 - **🏠 A house** — buy what you can afford; a grand home is bright, a cheap one is cracked
   and run-down, and it becomes the backdrop of the rest of your life.
 - **⏳ Time travel** — rewind to any past age and try a different life.
+
+Every stage has its **own hand-drawn pixel backdrop** — a pastel nursery, a classroom,
+a campus, an office, your home — and **everything is interconnected**: poverty is
+stressful, loneliness and poor health drag your mood, and marrying as a woman means your
+husband sadly tends to pass before you do.
 
 ## 🌱 The twelve stages
 

@@ -15,6 +15,7 @@ import {
   STAT_META,
   applyEffects,
   clampStat,
+  crossEffects,
   lifeExpectancyFromHealth,
   wealthHappinessBias,
   weightColor,
@@ -25,15 +26,19 @@ import { STAGES } from "./stages";
 import { PARTNERS } from "./partners";
 import { OCCUPATIONS } from "./occupations";
 import { HOUSE_TIERS } from "./houses";
-import { avatarLook, drawAvatar, drawRoom, drawStation } from "./sprites";
+import { avatarLook, drawAvatar, drawPerson, drawRoom, drawStation } from "./sprites";
 import { createUI, type UIRefs } from "./ui";
 import { generateStory, type CauseOfEnd, type LifeStory } from "./story";
 
-const W = 480;
-const H = 270;
-const FLOOR_Y = 196;
-const DOOR_X = W - 56;
-const SPEED = 124;
+const W = 640;
+const H = 360;
+const FLOOR_Y = 250;
+const DOOR_X = W - 74;
+const SPEED = 162;
+const ROW_BACK = 274;
+const ROW_FRONT = 330;
+const PY_MIN = 262;
+const PY_MAX = 348;
 const CAREER_INDEX = STAGES.findIndex((s) => s.id === "career");
 
 type Mode =
@@ -63,6 +68,7 @@ interface Snapshot {
   occupationId: string | null;
   homeQuality: number;
   hadChild: boolean;
+  spouseDeceased: boolean;
   healthSum: number;
   healthCount: number;
   historyLen: number;
@@ -86,6 +92,7 @@ export class Game {
   private weight = START_WEIGHT;
   private occupation: Occupation | null = null;
   private homeQuality = 0;
+  private spouseDeceased = false;
   private timeline: Snapshot[] = [];
   private pendingHouseOptId: string | null = null;
   private history: HistoryEntry[] = [];
@@ -182,6 +189,7 @@ export class Game {
     this.weight = START_WEIGHT;
     this.occupation = null;
     this.homeQuality = 0;
+    this.spouseDeceased = false;
     this.timeline = [];
     this.pendingHouseOptId = null;
     this.history = [];
@@ -200,8 +208,8 @@ export class Game {
     const s = STAGES[i];
     this.usedOnce.clear();
     this.age = Math.max(this.age, s.ageStart);
-    this.px = 46;
-    this.py = 236;
+    this.px = 70;
+    this.py = 322;
     this.focusIndex = -1;
     this.buildStations();
     this.sampleHealth();
@@ -228,22 +236,30 @@ export class Game {
       occupationId: this.occupation?.id ?? null,
       homeQuality: this.homeQuality,
       hadChild: this.hadChild,
+      spouseDeceased: this.spouseDeceased,
       healthSum: this.healthSum,
       healthCount: this.healthCount,
       historyLen: this.history.length,
     };
   }
 
+  /** Some NPC options only make sense in context (spouse alive, kids exist…). */
+  private optionAvailable(o: LifeOption): boolean {
+    if (o.person === "spouse") return !!this.partner && !this.spouseDeceased;
+    if (o.person === "child" || o.person === "grandkid") return this.hadChild;
+    return true;
+  }
+
   private buildStations(): void {
-    const opts = STAGES[this.stageIndex].options;
+    const opts = STAGES[this.stageIndex].options.filter((o) => this.optionAvailable(o));
     const backCount = Math.ceil(opts.length / 2);
     const rows: LifeOption[][] = [opts.slice(0, backCount), opts.slice(backCount)];
-    const rowY = [184, 240];
+    const rowY = [ROW_BACK, ROW_FRONT];
     const stations: Station[] = [];
     rows.forEach((row, r) => {
       const n = row.length;
-      const xStart = 76;
-      const xEnd = W - 92;
+      const xStart = 104;
+      const xEnd = W - 132;
       row.forEach((opt, c) => {
         const x = n === 1 ? (xStart + xEnd) / 2 : xStart + ((xEnd - xStart) * c) / (n - 1);
         stations.push({ x, y: rowY[r], opt });
@@ -272,15 +288,27 @@ export class Game {
     return lifeExpectancyFromHealth(this.avgHealth());
   }
 
+  /** The age your spouse passes away — a woman's husband leaves earlier. */
+  private spouseDeathAge(): number {
+    return this.gender === "female" ? 70 : 82;
+  }
+
   private passiveTick(): void {
     const s = this.stats;
     // modern life drifts toward weight gain; being out of range drains health
     this.weight = clampStat(this.weight + 0.13);
     s.health = clampStat(s.health - (0.4 + this.age * 0.012) - weightHealthDrain(this.weight));
     s.fun = clampStat(s.fun - 0.45);
-    s.happiness = clampStat(s.happiness - 0.25 - (s.health < 25 ? 0.6 : 0));
+    s.happiness = clampStat(s.happiness - 0.25);
     s.smarts = clampStat(s.smarts - 0.15);
     s.wealth = clampStat(s.wealth - 0.2);
+    // knock-on effects that wire the meters together (poverty, loneliness, etc.)
+    const fx = crossEffects(s);
+    s.health = clampStat(s.health + fx.health);
+    s.happiness = clampStat(s.happiness + fx.happiness);
+    // being very over/under-weight is also a little dispiriting
+    const ws = weightStatus(this.weight);
+    if (ws === "obese" || ws === "underweight") s.happiness = clampStat(s.happiness - 0.25);
   }
 
   // --- actions --------------------------------------------------------------
@@ -359,8 +387,8 @@ export class Game {
     let row = 0;
     const push = (text: string, color: string) => {
       this.floats.push({
-        x: this.px + (row % 2 === 0 ? -14 : 14),
-        y: this.py - 46 - Math.floor(row / 2) * 12,
+        x: this.px + (row % 2 === 0 ? -18 : 18),
+        y: this.py - 66 - Math.floor(row / 2) * 14,
         text,
         color,
         life: 1.1,
@@ -398,8 +426,21 @@ export class Game {
     this.sampleHealth();
 
     const next = this.stageIndex + 1;
-    const le = this.lifeExp();
 
+    // A spouse with a shorter life passes in old age. Men tend to die younger,
+    // so a woman's (older) husband leaves her earlier than a man's wife. Checked
+    // against the age you'll be in the next chapter, before any end-of-life test.
+    if (this.partner && !this.spouseDeceased && next < STAGES.length) {
+      const upcomingAge = Math.max(this.age, STAGES[next].ageStart);
+      if (upcomingAge >= this.spouseDeathAge()) {
+        this.spouseDeceased = true;
+        this.stats = applyEffects(this.stats, { happiness: -16, health: -4 });
+        const who = this.gender === "female" ? "husband" : "wife";
+        lines.push(`💔 Your ${who} ${this.partner.name} passed away. You grieve, but carry on.`);
+      }
+    }
+
+    const le = this.lifeExp();
     if (this.stats.health <= 0) return this.finishLife("health", Math.round(this.age));
     if (next >= STAGES.length) return this.finishLife("natural", Math.round(this.age));
     if (this.age >= le) return this.finishLife(le < 70 ? "health" : "natural", Math.round(this.age));
@@ -426,6 +467,7 @@ export class Game {
       weight: this.weight,
       occupation: this.occupation,
       homeQuality: this.homeQuality,
+      widowed: this.spouseDeceased,
     });
     this.mode = "ending";
     this.showEnding();
@@ -496,6 +538,7 @@ export class Game {
     this.age = snap.age;
     this.homeQuality = snap.homeQuality;
     this.hadChild = snap.hadChild;
+    this.spouseDeceased = snap.spouseDeceased;
     this.healthSum = snap.healthSum;
     this.healthCount = snap.healthCount;
     this.partner = snap.partnerId ? PARTNERS.find((p) => p.id === snap.partnerId) ?? null : null;
@@ -560,8 +603,8 @@ export class Game {
       const len = Math.hypot(dx, dy) || 1;
       this.px += (dx / len) * SPEED * dt;
       this.py += (dy / len) * SPEED * dt;
-      this.px = Math.max(34, Math.min(W - 24, this.px));
-      this.py = Math.max(168, Math.min(250, this.py));
+      this.px = Math.max(48, Math.min(W - 36, this.px));
+      this.py = Math.max(PY_MIN, Math.min(PY_MAX, this.py));
       this.walkPhase += dt * 10;
     } else {
       this.walkPhase += dt * 3;
@@ -598,7 +641,7 @@ export class Game {
     this.stations.forEach((st, i) => {
       const dx = Math.abs(this.px - st.x);
       const dy = Math.abs(this.py - st.y);
-      if (dx < 26 && dy < 26 && dx < bestDx) {
+      if (dx < 34 && dy < 34 && dx < bestDx) {
         best = i;
         bestDx = dx;
       }
@@ -628,20 +671,30 @@ export class Game {
       const t = this.walkPhase;
       const doorActive = this.age >= s.ageEnd;
       drawRoom(ctx, s.theme, W, H, FLOOR_Y, doorActive, t, {
-        stageId: s.id,
+        scene: s.scene,
         atHome: !!s.atHome,
         homeQuality: this.homeQuality,
       });
 
-      // stations sorted by y so closer ones overlap correctly
-      const order = [...this.stations].sort((a, b) => a.y - b.y);
-      for (const st of order) {
+      // draw stations, people and the avatar together, sorted by depth (y)
+      type Drawable = { y: number; station?: Station };
+      const drawables: Drawable[] = this.stations.map((st) => ({ y: st.y, station: st }));
+      drawables.push({ y: this.py }); // the avatar
+      drawables.sort((a, b) => a.y - b.y);
+      for (const d of drawables) {
+        if (!d.station) {
+          drawAvatar(ctx, this.px, this.py, avatarLook(this.stageIndex, this.gender), this.walkPhase, this.moving);
+          continue;
+        }
+        const st = d.station;
         const focused = this.stations[this.focusIndex] === st && this.mode === "playing";
         const used = !!st.opt.once && this.usedOnce.has(st.opt.id);
-        drawStation(ctx, st.x, st.y, st.opt.icon, st.opt.label, st.opt.category, focused, used, t);
+        if (st.opt.person) {
+          drawPerson(ctx, st.x, st.y, st.opt.person, this.gender, st.opt.label, focused, used, t);
+        } else {
+          drawStation(ctx, st.x, st.y, st.opt.icon, st.opt.label, st.opt.category, focused, used, t);
+        }
       }
-
-      drawAvatar(ctx, this.px, this.py, avatarLook(this.stageIndex, this.gender), this.walkPhase, this.moving);
     }
 
     // floats

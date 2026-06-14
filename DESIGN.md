@@ -70,6 +70,34 @@ Plus two derived values:
 
 ---
 
+## 2c. People & relationships
+
+Every room is populated with the **people in your life at that stage**, drawn as
+little characters you walk up to and bond with (an option with a `person` field —
+see [`stages.ts`](src/stages.ts)):
+
+| Stage | People you can bond with |
+|-------|--------------------------|
+| Newborn / Toddler / Early | 👩 Mum, 👨 Dad, 👵 Grandma, 👴 Grandpa, playmates, siblings |
+| School (elementary→high) | study pals, best friends, and a 💞 first crush |
+| University | roommate, a campus romance |
+| Career | 🧑‍💼 coworker, 🏃 gym buddy |
+| Marriage → Retirement | 💑 spouse, 🧒 your children, 👶 grandkids, old friends |
+
+Bonding raises **happiness** and **health** (social connection is one of the biggest
+longevity factors), and some bonds also nudge **smarts** (study pal) or burn **weight**
+(gym buddy). People appear only in context: the spouse shows once you're married, your
+kids only after you have them.
+
+### Spouse mortality (by gender)
+
+Marry as a **woman** and your (older) **husband passes away earlier** — around age 70 —
+because men tend to die younger; marry as a **man** and your wife outlives you. The loss
+is a real beat: a grief hit to happiness and health, the spouse leaves the room, and your
+life story records it.
+
+---
+
 ## 3. Balance model (grounded in real research)
 
 These relationships are deliberately modelled on published findings, so "playing
@@ -92,6 +120,11 @@ flowchart TD
   Sedentary[📺 Sedentary] --> HealthDown
   Health --> Life[⏳ Life expectancy]
   HealthDown --> Life
+  Wealth -- poverty < 20 = stress --> HealthDown
+  Wealth -- poverty --> HappyDown
+  HealthDown -- feeling sick --> HappyDown
+  Smarts -- look after yourself --> Health
+  Weight[⚖️ Bad weight] --> HealthDown
 ```
 
 **Key modelled rules:**
@@ -110,6 +143,12 @@ flowchart TD
    are, and finishing university grants a one-time salary bonus of `0.2 × Smarts`.
 5. **Neglect compounds.** A small passive drain each action (worse with age) means you
    must keep actively investing in health, fun and learning or they slide.
+6. **The meters pull on each other** (`crossEffects()` in [`stats.ts`](src/stats.ts),
+   applied every action): **poverty** (wealth < 20) is stressful — it drains health and
+   happiness; **poor health** drags your mood down the sicker you get; **a joyless life**
+   (low fun) erodes happiness; **being smart** helps you look after yourself (a small
+   protective health effect); and being **very over- or under-weight** is dispiriting.
+   So no stat lives in a vacuum.
 
 ---
 
