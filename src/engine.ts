@@ -279,20 +279,17 @@ export class Game {
 
   private buildStations(): void {
     const opts = STAGES[this.stageIndex].options.filter((o) => this.optionAvailable(o));
-    const backCount = Math.ceil(opts.length / 2);
-    const rows: LifeOption[][] = [opts.slice(0, backCount), opts.slice(backCount)];
-    const rowY = [ROW_BACK, ROW_FRONT];
-    const stations: Station[] = [];
-    rows.forEach((row, r) => {
-      const n = row.length;
-      const xStart = 104;
-      const xEnd = W - 132;
-      row.forEach((opt, c) => {
-        const x = n === 1 ? (xStart + xEnd) / 2 : xStart + ((xEnd - xStart) * c) / (n - 1);
-        stations.push({ x, y: rowY[r], opt });
-      });
-    });
-    this.stations = stations;
+    const n = opts.length;
+    const xStart = 104;
+    const xEnd = W - 120;
+    // Spread every option across the width and alternate back/front rows, so no
+    // two ever share a column — this keeps tall NPCs from hiding items behind
+    // them and stops the always-on labels from overlapping each other.
+    this.stations = opts.map((opt, i) => ({
+      x: n === 1 ? (xStart + xEnd) / 2 : xStart + ((xEnd - xStart) * i) / (n - 1),
+      y: i % 2 === 0 ? ROW_BACK : ROW_FRONT,
+      opt,
+    }));
   }
 
   // --- per-stage balance helpers -------------------------------------------
