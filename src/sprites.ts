@@ -119,7 +119,18 @@ export function personLook(kind: PersonKind, playerGender: Gender): AvatarLook {
   };
 }
 
-/** Draw a detailed blocky person with feet at (cx, footY). */
+/** A rect with a left highlight and right shadow strip, for rounded volume. */
+function vol(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, c: string, amt = 22): void {
+  px(ctx, x, y, w, h, c);
+  px(ctx, x, y, Math.max(1, w * 0.2), h, tint(c, Math.round(amt * 0.7)));
+  px(ctx, x + w - Math.max(1, w * 0.22), y, Math.max(1, w * 0.22), h, shade(c, amt));
+}
+
+/**
+ * Draw a human-proportioned, shaded pixel person with feet at (cx, footY):
+ * rounded head + neck, sloped shoulders, a tapered torso, hips, two-part legs
+ * and arms with hands, gendered build and hair, and soft top-left lighting.
+ */
 export function drawCharacter(
   ctx: CanvasRenderingContext2D,
   cx: number,
@@ -129,108 +140,147 @@ export function drawCharacter(
   moving: boolean
 ): void {
   const u = look.scale;
+  const female = look.gender === "female";
   const swing = moving ? Math.sin(walkPhase) : 0;
-  const bob = moving ? Math.abs(Math.sin(walkPhase)) * 0.6 * u : Math.sin(walkPhase * 0.5) * 0.3 * u;
-  const stoop = look.elder ? 1.4 * u : 0;
+  const bob = moving ? Math.abs(Math.sin(walkPhase)) * 0.5 * u : Math.sin(walkPhase * 0.5) * 0.22 * u;
+  const stoop = look.elder ? 1.5 * u : 0;
 
-  const legH = 5 * u;
-  const bodyH = 6 * u;
-  const headH = 6 * u;
-  const bodyW = 6.2 * u;
-  const headW = 5.6 * u;
+  // proportions (units) — closer to ~6 heads tall
+  const headW = 4.6 * u;
+  const headH = 5.0 * u;
+  const neckH = 1.2 * u;
+  const shoulderW = (female ? 6.0 : 7.0) * u;
+  const waistW = (female ? 4.0 : 5.0) * u;
+  const torsoH = 6.6 * u;
+  const hipW = (female ? 5.6 : 5.2) * u;
+  const legH = 7.6 * u;
+  const legW = 2.0 * u;
 
   const baseY = footY - bob;
   const legTop = baseY - legH;
-  const bodyTop = legTop - bodyH + stoop;
-  const headTop = bodyTop - headH + stoop * 0.4 + 0.4 * u;
+  const torsoTop = legTop - torsoH + stoop;
+  const neckY = torsoTop - neckH + stoop * 0.4;
+  const headTop = neckY - headH + 0.5 * u;
 
-  // shadow
+  const skin = look.skin;
+  const skinD = shade(skin, 24);
+  const shirt = look.shirt;
+  const hairD = shade(look.hair, 24);
+  const iris = "#4a3526";
+  const lip = female ? "#d9707f" : "#b5635e";
+
+  // ground shadow
   ctx.fillStyle = "rgba(0,0,0,0.20)";
   ctx.beginPath();
-  ctx.ellipse(cx, footY + 1, bodyW * 0.75, 1.8 * u, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx, footY + 1, shoulderW * 0.62, 1.9 * u, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  const lOff = swing * 1.1 * u;
+  // --- legs (thigh + calf, slight taper) + shoes ---------------------------
+  const stride = swing * 1.5 * u;
+  const lift = Math.abs(swing) * 0.9 * u;
+  const drawLeg = (lx: number, footDx: number, raise: number): void => {
+    const top = legTop;
+    const footY2 = baseY - 1.5 * u - raise;
+    vol(ctx, lx, top, legW, legH * 0.55, look.pants, 18); // thigh
+    vol(ctx, lx + 0.15 * u, top + legH * 0.5, legW - 0.3 * u, legH * 0.55 - raise, look.pants, 18); // calf
+    // shoe with a little toe
+    px(ctx, lx - 0.4 * u + footDx, footY2, legW + 0.9 * u, 1.5 * u, look.shoes);
+    px(ctx, lx + legW + 0.1 * u + footDx, footY2 + 0.4 * u, 0.9 * u, 1.1 * u, look.shoes);
+    px(ctx, lx - 0.4 * u + footDx, footY2, legW + 0.9 * u, 0.5 * u, tint(look.shoes, 18));
+  };
+  drawLeg(cx - 0.3 * u - legW, -stride, swing > 0 ? lift : 0);
+  drawLeg(cx + 0.3 * u, stride, swing < 0 ? lift : 0);
 
+  // --- skirt (women, school age up) ----------------------------------------
   if (look.skirt) {
-    // bare legs + shoes, then a skirt over the top of them
-    const legW = 1.9 * u;
-    px(ctx, cx - legW - 0.3 * u, legTop + 1.5 * u, legW, legH - 1.5 * u - lOff, look.skin);
-    px(ctx, cx + 0.3 * u, legTop + 1.5 * u, legW, legH - 1.5 * u + lOff, look.skin);
-    px(ctx, cx - legW - 0.3 * u, baseY - 1.3 * u - lOff, legW, 1.3 * u, look.shoes);
-    px(ctx, cx + 0.3 * u, baseY - 1.3 * u + lOff, legW, 1.3 * u, look.shoes);
+    for (let i = 0; i < 4; i++) {
+      const w = waistW + 0.8 * u + i * 1.25 * u;
+      vol(ctx, cx - w / 2, torsoTop + torsoH - 1.4 * u + i * 0.95 * u, w, 1.2 * u, look.pants, 16);
+    }
   } else {
-    const legW = 2.3 * u;
-    const gap = 0.5 * u;
-    px(ctx, cx - gap - legW, legTop, legW, legH - lOff, look.pants);
-    px(ctx, cx + gap, legTop, legW, legH + lOff, look.pants);
-    px(ctx, cx - gap - legW, baseY - 1.4 * u - lOff, legW, 1.4 * u, look.shoes);
-    px(ctx, cx + gap, baseY - 1.4 * u + lOff, legW, 1.4 * u, look.shoes);
+    vol(ctx, cx - hipW / 2, legTop - 1.7 * u, hipW, 2.4 * u, look.pants, 16); // hips
   }
 
-  // torso / dress
-  if (look.skirt) {
-    // flared skirt (trapezoid of rects) sitting on top of the legs
-    const sw = bodyW + 1.2 * u;
-    px(ctx, cx - sw / 2, legTop + 0.5 * u, sw, 2.2 * u, look.pants);
-    px(ctx, cx - sw / 2 + 0.8 * u, legTop - 0.8 * u, sw - 1.6 * u, 1.5 * u, look.pants);
+  // --- torso (tapered shoulders -> waist), shaded rows ---------------------
+  const ROWS = 6;
+  for (let i = 0; i < ROWS; i++) {
+    const f = i / (ROWS - 1);
+    const w = shoulderW + (waistW - shoulderW) * f;
+    const y = torsoTop + (torsoH / ROWS) * i;
+    vol(ctx, cx - w / 2, y, w, torsoH / ROWS + 0.6, shirt, 24);
   }
-  px(ctx, cx - bodyW / 2, bodyTop, bodyW, bodyH, look.shirt);
-  px(ctx, cx - bodyW / 2, bodyTop + bodyH - 1.3 * u, bodyW, 1.3 * u, shade(look.shirt, 26)); // hem shade
-  px(ctx, cx - bodyW / 2, bodyTop, bodyW, 1 * u, tint(look.shirt, 24)); // shoulder highlight
-  // collar
-  px(ctx, cx - 1.2 * u, bodyTop, 2.4 * u, 1.2 * u, look.skin);
+  // collar / neckline notch
+  px(ctx, cx - 1.3 * u, torsoTop, 2.6 * u, 1.2 * u, skin);
+  if (!female) px(ctx, cx - 0.3 * u, torsoTop, 0.6 * u, 2.2 * u, shade(shirt, 16)); // shirt placket
 
-  // arms swinging opposite the legs
+  // --- arms (upper sleeve + forearm + hand), counter-swing -----------------
+  const aSw = -swing * 1.4 * u;
   const armW = 1.7 * u;
-  const armH = 4.6 * u;
-  const aOff = swing * 1.1 * u;
-  px(ctx, cx - bodyW / 2 - armW + 0.3 * u, bodyTop + 0.6 * u + aOff, armW, armH, look.shirt);
-  px(ctx, cx + bodyW / 2 - 0.3 * u, bodyTop + 0.6 * u - aOff, armW, armH, look.shirt);
-  px(ctx, cx - bodyW / 2 - armW + 0.3 * u, bodyTop + 0.6 * u + armH + aOff, armW, 1.3 * u, look.skin);
-  px(ctx, cx + bodyW / 2 - 0.3 * u, bodyTop + 0.6 * u + armH - aOff, armW, 1.3 * u, look.skin);
+  const drawArm = (side: number): void => {
+    const sx = cx + side * (shoulderW / 2 - armW * 0.3) - (side < 0 ? armW : 0);
+    const top = torsoTop + 0.5 * u + side * aSw * 0;
+    const off = side < 0 ? aSw : -aSw;
+    vol(ctx, sx, top + off, armW, 3.2 * u, shirt, 20); // upper sleeve
+    vol(ctx, sx + 0.1 * u, top + 3.0 * u + off, armW - 0.2 * u, 2.4 * u, skin, 18); // forearm
+    px(ctx, sx, top + 5.2 * u + off, armW, 1.4 * u, skin); // hand
+    px(ctx, sx, top + 5.2 * u + off, armW, 0.5 * u, shade(skin, 18));
+  };
+  drawArm(-1);
+  drawArm(1);
 
-  // head + ears
-  px(ctx, cx - headW / 2, headTop, headW, headH, look.skin);
-  px(ctx, cx - headW / 2 - 0.7 * u, headTop + 2.4 * u, 0.8 * u, 1.6 * u, look.skin);
-  px(ctx, cx + headW / 2 - 0.1 * u, headTop + 2.4 * u, 0.8 * u, 1.6 * u, look.skin);
+  // --- neck ----------------------------------------------------------------
+  px(ctx, cx - 1.2 * u, neckY, 2.4 * u, neckH + 0.5 * u, skin);
+  px(ctx, cx - 1.2 * u, neckY, 2.4 * u, 0.7 * u, skinD); // shadow under jaw
 
-  // hair behind (long) first
+  // --- head (rounded via stepped rows) + shading ---------------------------
+  const hx = cx - headW / 2;
+  px(ctx, hx + 0.9 * u, headTop, headW - 1.8 * u, 1 * u, skin); // crown
+  px(ctx, hx, headTop + 1 * u, headW, headH - 2 * u, skin); // middle
+  px(ctx, hx + 0.9 * u, headTop + headH - 1 * u, headW - 1.8 * u, 1 * u, skin); // chin
+  px(ctx, hx, headTop + 1 * u, 0.9 * u, headH - 2.2 * u, tint(skin, 12)); // light cheek
+  px(ctx, hx + headW - 1 * u, headTop + 1 * u, 1 * u, headH - 2.2 * u, skinD); // shadow cheek
+  // ears
+  px(ctx, hx - 0.6 * u, headTop + 2.4 * u, 0.8 * u, 1.6 * u, skin);
+  px(ctx, hx + headW - 0.2 * u, headTop + 2.4 * u, 0.8 * u, 1.6 * u, skinD);
+
+  // --- hair ----------------------------------------------------------------
   if (look.hairStyle === "long") {
-    px(ctx, cx - headW / 2 - 0.7 * u, headTop + 1 * u, 1.5 * u, headH + 2.2 * u, look.hair);
-    px(ctx, cx + headW / 2 - 0.8 * u, headTop + 1 * u, 1.5 * u, headH + 2.2 * u, look.hair);
+    px(ctx, hx - 0.8 * u, headTop + 1.4 * u, 1.6 * u, headH + 2.6 * u, look.hair); // left fall
+    px(ctx, hx + headW - 0.8 * u, headTop + 1.4 * u, 1.6 * u, headH + 2.6 * u, hairD); // right fall
   }
-  // hair cap
-  px(ctx, cx - headW / 2, headTop - 0.4 * u, headW, 2.3 * u, look.hair);
-  px(ctx, cx - headW / 2, headTop, 1.1 * u, 2.6 * u, look.hair);
-  px(ctx, cx + headW / 2 - 1.1 * u, headTop, 1.1 * u, 2.6 * u, look.hair);
-  px(ctx, cx - headW / 2, headTop - 0.4 * u, headW, 0.7 * u, tint(look.hair, 24));
-  if (look.hairStyle === "bun") {
-    px(ctx, cx - 1.1 * u, headTop - 1.8 * u, 2.2 * u, 1.8 * u, look.hair);
-  }
+  px(ctx, hx + 0.6 * u, headTop - 0.5 * u, headW - 1.2 * u, 1 * u, look.hair); // crown cap
+  px(ctx, hx, headTop + 0.4 * u, headW, 2.0 * u, look.hair); // fringe band
+  px(ctx, hx, headTop + 0.4 * u, 1.1 * u, 3.0 * u, look.hair); // left temple
+  px(ctx, hx + headW - 1.1 * u, headTop + 0.4 * u, 1.1 * u, 3.0 * u, hairD); // right temple
+  px(ctx, hx + 0.6 * u, headTop - 0.5 * u, headW - 1.2 * u, 0.6 * u, tint(look.hair, 26)); // sheen
+  if (!female && !look.elder) px(ctx, cx - 0.2 * u, headTop + 0.6 * u, 1.6 * u, 1.4 * u, look.hair); // side part
+  if (look.hairStyle === "bun") px(ctx, cx - 1.2 * u, headTop - 1.9 * u, 2.4 * u, 1.9 * u, look.hair);
 
-  // face: brows, eyes (white + pupil), nose, mouth, blush
-  const eyeY = headTop + 2.9 * u;
-  px(ctx, cx - 2 * u, eyeY - 0.9 * u, 1.4 * u, 0.5 * u, shade(look.hair, 10)); // brow L
-  px(ctx, cx + 0.6 * u, eyeY - 0.9 * u, 1.4 * u, 0.5 * u, shade(look.hair, 10)); // brow R
-  px(ctx, cx - 2 * u, eyeY, 1.4 * u, 1.4 * u, "#ffffff");
-  px(ctx, cx + 0.6 * u, eyeY, 1.4 * u, 1.4 * u, "#ffffff");
-  px(ctx, cx - 1.5 * u, eyeY + 0.3 * u, 0.8 * u, 0.9 * u, "#2a2233");
-  px(ctx, cx + 0.9 * u, eyeY + 0.3 * u, 0.8 * u, 0.9 * u, "#2a2233");
-  px(ctx, cx - 0.3 * u, eyeY + 1.3 * u, 0.6 * u, 0.8 * u, shade(look.skin, 30)); // nose
-  px(ctx, cx - 1.3 * u, eyeY + 2.5 * u, 2.6 * u, 0.7 * u, "#b5605e"); // mouth
-  px(ctx, cx - 2.4 * u, eyeY + 1.7 * u, 1 * u, 0.7 * u, "rgba(255,140,160,0.5)"); // blush
-  px(ctx, cx + 1.4 * u, eyeY + 1.7 * u, 1 * u, 0.7 * u, "rgba(255,140,160,0.5)");
+  // --- face ----------------------------------------------------------------
+  const eyeY = headTop + 2.7 * u;
+  const eyeW = 1.3 * u;
+  px(ctx, cx - 2.1 * u, eyeY - 1 * u, 1.5 * u, 0.5 * u, hairD); // brow L
+  px(ctx, cx + 0.6 * u, eyeY - 1 * u, 1.5 * u, 0.5 * u, hairD); // brow R
+  for (const ex of [-2.0 * u, 0.7 * u]) {
+    px(ctx, cx + ex, eyeY, eyeW, 1.3 * u, "#ffffff"); // sclera
+    px(ctx, cx + ex + 0.4 * u, eyeY + 0.2 * u, 0.7 * u, 0.9 * u, iris); // iris
+    px(ctx, cx + ex + 0.5 * u, eyeY + 0.4 * u, 0.4 * u, 0.5 * u, "#1c1622"); // pupil
+    px(ctx, cx + ex + 0.4 * u, eyeY + 0.1 * u, 0.3 * u, 0.3 * u, "#ffffff"); // glint
+  }
+  px(ctx, cx - 0.3 * u, eyeY + 1.2 * u, 0.7 * u, 1 * u, skinD); // nose
+  px(ctx, cx - 1.2 * u, eyeY + 2.7 * u, 2.4 * u, 0.7 * u, lip); // mouth
+  if (female) px(ctx, cx - 1.2 * u, eyeY + 2.7 * u, 2.4 * u, 0.4 * u, tint(lip, 24)); // upper lip
+  px(ctx, cx - 2.5 * u, eyeY + 1.6 * u, 1 * u, 0.8 * u, "rgba(255,140,160,0.45)"); // blush
+  px(ctx, cx + 1.5 * u, eyeY + 1.6 * u, 1 * u, 0.8 * u, "rgba(255,140,160,0.45)");
 
   if (look.elder) {
-    // glasses
-    px(ctx, cx - 2.1 * u, eyeY - 0.2 * u, 1.8 * u, 1.9 * u, "rgba(255,255,255,0.0)");
-    ctx.strokeStyle = "#5a5a66";
-    ctx.lineWidth = Math.max(1, 0.4 * u);
-    ctx.strokeRect(cx - 2.1 * u, eyeY - 0.2 * u, 1.8 * u, 1.9 * u);
-    ctx.strokeRect(cx + 0.5 * u, eyeY - 0.2 * u, 1.8 * u, 1.9 * u);
-    // cane
-    px(ctx, cx + bodyW / 2 + armW + 0.4 * u, bodyTop, 0.9 * u, legH + bodyH + 1 * u, "#7a5a36");
+    px(ctx, cx - 2.0 * u, headTop + 1.4 * u, headW - 1.2 * u, 0.4 * u, skinD); // forehead wrinkle
+    ctx.strokeStyle = "#56565f";
+    ctx.lineWidth = Math.max(1, 0.35 * u);
+    ctx.strokeRect(cx - 2.2 * u, eyeY - 0.2 * u, 1.8 * u, 1.8 * u);
+    ctx.strokeRect(cx + 0.5 * u, eyeY - 0.2 * u, 1.8 * u, 1.8 * u);
+    px(ctx, cx - 0.4 * u, eyeY + 0.5 * u, 0.8 * u, 0.4 * u, "#56565f"); // bridge
+    px(ctx, cx + shoulderW / 2 + 1.2 * u, torsoTop + 1 * u, 0.9 * u, legH + torsoH, "#7a5a36"); // cane
   }
 }
 

@@ -235,6 +235,7 @@ export class Game {
     this.py = 322;
     this.focusIndex = -1;
     this.buildStations();
+    this.renderFocusPanel(); // reset the panel to the default prompt on stage entry
     this.sampleHealth();
     this.timeline[i] = this.snapshot(); // capture entry state for time travel
     if (s.isMarriage && !this.partner) {

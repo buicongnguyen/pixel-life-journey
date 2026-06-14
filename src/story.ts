@@ -161,19 +161,24 @@ export function generateStory(input: StoryInput): LifeStory {
 
   // Opening
   const child = gender === "female" ? "girl" : "boy";
+  const yrs = Math.round(deathAge);
   paragraphs.push(
-    `A baby ${child} was born, full of promise. Over ${Math.round(
-      deathAge
-    )} years, here is the life you lived.`
+    `A baby ${child} was born one ordinary morning, small and full of promise. Over the ${yrs} years that followed, this is the life you lived — and the thousand little choices that quietly shaped it.`
   );
 
-  // One paragraph per era that actually had choices
-  for (const era of ERAS) {
-    const tags = dominantTags(history, era.stages, 2);
-    if (tags.length === 0) continue;
-    const cap = era.phrase.charAt(0).toUpperCase() + era.phrase.slice(1);
-    paragraphs.push(`${cap}: you ${joinClauses(tags)}.`);
-  }
+  // One richer paragraph per era that actually had choices (up to 3 habits each)
+  const intros = [
+    "As a small child,",
+    "Through your school years,",
+    "In your eventful twenties,",
+    "Settling into your middle years,",
+    "And in your later years,",
+  ];
+  ERAS.forEach((era, i) => {
+    const tags = dominantTags(history, era.stages, 3);
+    if (tags.length === 0) return;
+    paragraphs.push(`${intros[i] ?? "Then"} you ${joinClauses(tags)}.`);
+  });
 
   // Work + home
   const work = workHomeParagraph(occupation, homeQuality);
@@ -214,6 +219,9 @@ export function generateStory(input: StoryInput): LifeStory {
 
   // The verdict on the meters (incl. fitness)
   paragraphs.push(verdictParagraph(finalStats, weight));
+
+  // A reflective look at what you leave behind
+  paragraphs.push(legacyParagraph(finalStats, hadChild));
 
   // How it ended
   paragraphs.push(endingParagraph(cause, deathAge, finalStats));
@@ -302,6 +310,21 @@ function verdictParagraph(s: Stats, weight: number): string {
     underweight: " You stayed thin, sometimes too thin for your own good.",
   };
   return para + fit[ws];
+}
+
+function legacyParagraph(s: Stats, hadChild: boolean): string {
+  const bits: string[] = [];
+  bits.push(
+    hadChild
+      ? "you leave behind children — and the warm, noisy family you built around them"
+      : "you leave behind no children of your own, but a long trail of people whose lives you brushed against"
+  );
+  if (s.smarts >= 70) bits.push("a sharp, curious mind that never stopped learning");
+  else if (s.smarts < 35) bits.push("few books read, but plenty of living done");
+  if (s.happiness >= 70) bits.push("and far more good days than bad");
+  else if (s.happiness < 35) bits.push("and a heart that knew its share of hard days");
+  else bits.push("and a fair mix of laughter and tears");
+  return "Looking back over it all, " + bits.join(", ") + ".";
 }
 
 function endingParagraph(cause: CauseOfEnd, age: number, s: Stats): string {
