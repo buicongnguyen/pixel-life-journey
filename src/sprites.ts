@@ -110,20 +110,21 @@ interface BodyProfile {
   elder: boolean;
 }
 
-// One profile per stage — head huge at birth, body lengthening with age.
+// Chibi proportions: everyone has a big cute head; babies the biggest. The
+// head-to-body ratio still matures with age (baby ≈ 2 heads tall → adult ≈ 3).
 const STAGE_PROFILES: BodyProfile[] = [
-  { heightPx: 44, headRatio: 0.42, chub: 1.0, baby: true, child: true, elder: false }, // newborn
-  { heightPx: 54, headRatio: 0.33, chub: 0.85, baby: false, child: true, elder: false }, // toddler
-  { heightPx: 64, headRatio: 0.29, chub: 0.7, baby: false, child: true, elder: false }, // early
-  { heightPx: 76, headRatio: 0.25, chub: 0.55, baby: false, child: true, elder: false }, // elementary
-  { heightPx: 86, headRatio: 0.21, chub: 0.42, baby: false, child: false, elder: false }, // middle
-  { heightPx: 94, headRatio: 0.185, chub: 0.32, baby: false, child: false, elder: false }, // high
-  { heightPx: 100, headRatio: 0.165, chub: 0.28, baby: false, child: false, elder: false }, // university
-  { heightPx: 104, headRatio: 0.155, chub: 0.28, baby: false, child: false, elder: false }, // career
-  { heightPx: 104, headRatio: 0.155, chub: 0.3, baby: false, child: false, elder: false }, // marriage
-  { heightPx: 102, headRatio: 0.155, chub: 0.36, baby: false, child: false, elder: false }, // midlife
-  { heightPx: 98, headRatio: 0.16, chub: 0.4, baby: false, child: false, elder: true }, // senior
-  { heightPx: 93, headRatio: 0.17, chub: 0.42, baby: false, child: false, elder: true }, // retirement
+  { heightPx: 50, headRatio: 0.52, chub: 1.0, baby: true, child: true, elder: false }, // newborn
+  { heightPx: 58, headRatio: 0.49, chub: 0.95, baby: false, child: true, elder: false }, // toddler
+  { heightPx: 66, headRatio: 0.46, chub: 0.85, baby: false, child: true, elder: false }, // early
+  { heightPx: 74, headRatio: 0.44, chub: 0.78, baby: false, child: true, elder: false }, // elementary
+  { heightPx: 82, headRatio: 0.42, chub: 0.7, baby: false, child: false, elder: false }, // middle
+  { heightPx: 88, headRatio: 0.4, chub: 0.62, baby: false, child: false, elder: false }, // high
+  { heightPx: 94, headRatio: 0.38, chub: 0.58, baby: false, child: false, elder: false }, // university
+  { heightPx: 98, headRatio: 0.37, chub: 0.56, baby: false, child: false, elder: false }, // career
+  { heightPx: 98, headRatio: 0.37, chub: 0.58, baby: false, child: false, elder: false }, // marriage
+  { heightPx: 96, headRatio: 0.37, chub: 0.62, baby: false, child: false, elder: false }, // midlife
+  { heightPx: 92, headRatio: 0.38, chub: 0.66, baby: false, child: false, elder: true }, // senior
+  { heightPx: 88, headRatio: 0.39, chub: 0.68, baby: false, child: false, elder: true }, // retirement
 ];
 
 const SKIN = "#f3c49a";
@@ -218,16 +219,17 @@ function drawStanding(ctx: CanvasRenderingContext2D, cx: number, footY: number, 
   const stoop = look.elder ? H * 0.045 : 0;
   const baseY = footY - bob;
 
+  // chibi build: big round head, almost no neck, small round body, stubby limbs
   const headH = H * look.headRatio;
-  const headW = headH * (look.child ? 0.92 : 0.84) * (1 + look.chub * 0.05);
-  const neckH = headH * (look.child ? 0.22 : 0.36);
-  const torsoH = H * (look.child ? 0.3 : 0.33);
-  const legH = Math.max(H * 0.18, H - headH - neckH - torsoH);
-  const shoulderW = headW * (female ? 1.4 : 1.66) + look.chub * headW * 0.3;
-  const waistW = shoulderW * (female ? 0.62 : 0.74) + look.chub * headW * 0.2;
-  const hipW = shoulderW * (female ? 0.98 : 0.86);
-  const legW = H * (0.058 + look.chub * 0.018);
-  const armW = legW * 0.82;
+  const headW = headH * 0.98 * (1 + look.chub * 0.04);
+  const neckH = headH * 0.1;
+  const torsoH = (H - headH) * (look.child ? 0.5 : 0.46);
+  const legH = Math.max(H * 0.14, H - headH - neckH - torsoH);
+  const shoulderW = headW * (female ? 0.92 : 1.04) + look.chub * headW * 0.18;
+  const waistW = shoulderW * (female ? 0.84 : 0.9);
+  const hipW = shoulderW * (female ? 1.04 : 0.96);
+  const legW = H * (0.082 + look.chub * 0.02);
+  const armW = legW * 0.86;
 
   const hipY = baseY - legH;
   const torsoTopY = hipY - torsoH + stoop;
@@ -346,70 +348,63 @@ function drawHair(ctx: CanvasRenderingContext2D, hcx: number, hcy: number, hw: n
 }
 
 function drawFace(ctx: CanvasRenderingContext2D, hcx: number, hcy: number, hw: number, hh: number, look: AvatarLook): void {
-  const big = look.child;
-  const iris = "#4a3526";
-  const lip = look.gender === "female" ? "#d9707f" : "#bb6a62";
-  const skinD = shade(look.skin, 26);
-  const eyeR = hw * (big ? 0.13 : 0.1);
-  const eyeY = hcy + hh * (big ? 0.05 : 0.02);
-  const eyeDX = hw * (big ? 0.24 : 0.22);
+  const iris = look.gender === "female" ? "#6a3f6a" : "#4a3526";
+  const lip = look.gender === "female" ? "#e07a88" : "#c06f66";
   const hairD = shade(look.hair, 10);
+  // big chibi eyes, set low on the face
+  const eyeR = hw * (look.child ? 0.21 : 0.18);
+  const eyeY = hcy + hh * 0.12;
+  const eyeDX = hw * 0.28;
 
   for (const s of [-1, 1]) {
     const ex = hcx + s * eyeDX;
-    ellipse(ctx, ex, eyeY, eyeR * 1.05, eyeR * 1.3, "#ffffff");
-    ellipse(ctx, ex, eyeY + eyeR * 0.18, eyeR * 0.72, eyeR * 0.92, iris);
-    ellipse(ctx, ex, eyeY + eyeR * 0.24, eyeR * 0.4, eyeR * 0.5, "#1b1622");
-    ellipse(ctx, ex - eyeR * 0.28, eyeY - eyeR * 0.28, eyeR * 0.26, eyeR * 0.26, "#ffffff");
-    // brow
-    ctx.strokeStyle = hairD;
-    ctx.lineWidth = hw * 0.045;
+    ellipse(ctx, ex, eyeY, eyeR * 0.96, eyeR * 1.18, "#ffffff"); // sclera
+    ellipse(ctx, ex, eyeY + eyeR * 0.12, eyeR * 0.8, eyeR * 0.98, iris); // big iris
+    ellipse(ctx, ex, eyeY + eyeR * 0.16, eyeR * 0.46, eyeR * 0.58, "#16121c"); // pupil
+    ellipse(ctx, ex - eyeR * 0.3, eyeY - eyeR * 0.34, eyeR * 0.34, eyeR * 0.36, "#ffffff"); // big sparkle
+    ellipse(ctx, ex + eyeR * 0.3, eyeY + eyeR * 0.24, eyeR * 0.16, eyeR * 0.16, "rgba(255,255,255,0.85)"); // small sparkle
+    // upper lash line
+    ctx.strokeStyle = "#2a2030";
+    ctx.lineWidth = hw * 0.03;
     ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.moveTo(ex - eyeR * 1.2, eyeY - eyeR * 1.55);
-    ctx.quadraticCurveTo(ex, eyeY - eyeR * (look.elder ? 1.5 : 2), ex + eyeR * 1.2, eyeY - eyeR * 1.6);
+    ctx.arc(ex, eyeY, eyeR * 1.0, Math.PI * 1.06, Math.PI * 1.94);
+    ctx.stroke();
+    // soft brow
+    ctx.strokeStyle = hairD;
+    ctx.lineWidth = hw * 0.045;
+    ctx.beginPath();
+    ctx.moveTo(ex - eyeR * 0.85, eyeY - eyeR * 1.3);
+    ctx.quadraticCurveTo(ex, eyeY - eyeR * (look.elder ? 1.35 : 1.6), ex + eyeR * 0.85, eyeY - eyeR * 1.35);
     ctx.stroke();
   }
-  // nose
-  ctx.strokeStyle = skinD;
-  ctx.lineWidth = hw * 0.035;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(hcx, eyeY + eyeR * 0.7);
-  ctx.lineTo(hcx + hw * 0.025, eyeY + hh * 0.16);
-  ctx.stroke();
-  // mouth (gentle smile)
+  // tiny nose dot
+  ellipse(ctx, hcx, eyeY + eyeR * 1.2, hw * 0.03, hw * 0.025, shade(look.skin, 20));
+  // small mouth
   ctx.strokeStyle = lip;
-  ctx.lineWidth = hw * (big ? 0.07 : 0.055);
+  ctx.lineWidth = hw * 0.05;
   ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.arc(hcx, eyeY + hh * (big ? 0.2 : 0.24), hw * 0.18, 0.18 * Math.PI, 0.82 * Math.PI);
+  ctx.arc(hcx, eyeY + eyeR * 1.35, hw * 0.12, 0.15 * Math.PI, 0.85 * Math.PI);
   ctx.stroke();
-  // blush
-  ctx.fillStyle = "rgba(255,140,160,0.32)";
+  // big rosy cheeks
+  ctx.fillStyle = "rgba(255,150,165,0.42)";
   ctx.beginPath();
-  ctx.ellipse(hcx - hw * 0.3, eyeY + hh * 0.12, hw * 0.11, hh * 0.07, 0, 0, Math.PI * 2);
-  ctx.ellipse(hcx + hw * 0.3, eyeY + hh * 0.12, hw * 0.11, hh * 0.07, 0, 0, Math.PI * 2);
+  ctx.ellipse(hcx - hw * 0.33, eyeY + eyeR * 0.95, hw * 0.13, hh * 0.07, 0, 0, Math.PI * 2);
+  ctx.ellipse(hcx + hw * 0.33, eyeY + eyeR * 0.95, hw * 0.13, hh * 0.07, 0, 0, Math.PI * 2);
   ctx.fill();
-  // elder details
+  // elder glasses
   if (look.elder) {
-    ctx.strokeStyle = "rgba(120,95,80,0.4)";
-    ctx.lineWidth = hw * 0.03;
-    ctx.beginPath();
-    ctx.moveTo(hcx - hw * 0.32, hcy - hh * 0.18);
-    ctx.lineTo(hcx + hw * 0.32, hcy - hh * 0.2);
-    ctx.stroke();
-    // glasses
     ctx.strokeStyle = "rgba(70,70,80,0.9)";
     ctx.lineWidth = hw * 0.04;
     for (const s of [-1, 1]) {
       ctx.beginPath();
-      ctx.ellipse(hcx + s * eyeDX, eyeY, eyeR * 1.5, eyeR * 1.5, 0, 0, Math.PI * 2);
+      ctx.ellipse(hcx + s * eyeDX, eyeY, eyeR * 1.2, eyeR * 1.2, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
     ctx.beginPath();
-    ctx.moveTo(hcx - eyeDX + eyeR * 1.4, eyeY);
-    ctx.lineTo(hcx + eyeDX - eyeR * 1.4, eyeY);
+    ctx.moveTo(hcx - eyeDX + eyeR * 1.1, eyeY);
+    ctx.lineTo(hcx + eyeDX - eyeR * 1.1, eyeY);
     ctx.stroke();
   }
 }
@@ -725,67 +720,70 @@ function rrect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h
 export function drawStation(ctx: CanvasRenderingContext2D, x: number, y: number, icon: string, label: string, category: string, focused: boolean, used: boolean, t: number): void {
   const tintC = CAT_TINT[category] ?? "#ffffff";
   const bob = focused ? Math.sin(t * 6) * 3 : 0;
-  const plate = 38;
-  const top = y - plate - 14 + bob;
+  const plate = focused ? 46 : 42;
+  const top = y - plate - 18 + bob;
 
-  // soft shadow + pedestal
+  // soft shadow
   ctx.fillStyle = "rgba(0,0,0,0.22)";
   ctx.beginPath();
-  ctx.ellipse(x, y + 3, 22, 5, 0, 0, Math.PI * 2);
+  ctx.ellipse(x, y - 4, 20, 5, 0, 0, Math.PI * 2);
   ctx.fill();
-  const pedG = ctx.createLinearGradient(0, y - 6, 0, y + 8);
-  pedG.addColorStop(0, "#3a3350");
-  pedG.addColorStop(1, "#211b30");
-  ctx.fillStyle = pedG;
-  rrect(ctx, x - 22, y - 6, 44, 13, 4);
-  ctx.fill();
-
   if (focused) {
     ctx.fillStyle = "rgba(255,255,255,0.12)";
     ctx.beginPath();
-    ctx.ellipse(x, y + 1, 26, 8, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y - 6, 26, 8, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
   ctx.save();
-  if (used) ctx.globalAlpha = 0.4;
-  // bevelled, gradient plate
+  if (used) ctx.globalAlpha = 0.45;
+  // rounded plate: light tint of the category colour so the type reads at a glance
   const g = ctx.createLinearGradient(0, top, 0, top + plate);
   if (focused) {
-    g.addColorStop(0, tint(tintC, 30));
-    g.addColorStop(1, shade(tintC, 24));
+    g.addColorStop(0, tint(tintC, 34));
+    g.addColorStop(1, shade(tintC, 14));
   } else {
-    g.addColorStop(0, "#363052");
-    g.addColorStop(1, "#241e38");
+    g.addColorStop(0, "#3b3458");
+    g.addColorStop(1, "#241e3a");
   }
   ctx.fillStyle = g;
-  rrect(ctx, x - plate / 2, top, plate, plate, 8);
+  rrect(ctx, x - plate / 2, top, plate, plate, 11);
   ctx.fill();
-  ctx.strokeStyle = focused ? "rgba(255,255,255,0.85)" : tintC;
-  ctx.lineWidth = 2;
-  rrect(ctx, x - plate / 2, top, plate, plate, 8);
+  // category-coloured border (always) — colour-codes the kind of choice
+  ctx.strokeStyle = focused ? "#ffffff" : tintC;
+  ctx.lineWidth = focused ? 3 : 2.5;
+  rrect(ctx, x - plate / 2, top, plate, plate, 11);
   ctx.stroke();
 
-  ctx.font = "25px system-ui, 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif";
+  ctx.font = `${focused ? 31 : 28}px system-ui, 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(icon, x, top + plate / 2 + 1);
   if (used) {
     ctx.fillStyle = "#3ddc84";
-    ctx.font = "16px system-ui, sans-serif";
-    ctx.fillText("✓", x + 14, top + 6);
+    ctx.font = "17px system-ui, sans-serif";
+    ctx.fillText("✓", x + plate / 2 - 4, top + 5);
   }
   ctx.restore();
 
+  // always-on label (above the plate, clear of characters) so every choice reads
+  ctx.font = `${focused ? "bold " : ""}10px 'Trebuchet MS', system-ui, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const w = ctx.measureText(label).width + 12;
+  const ly = top - 9;
+  ctx.save();
+  if (used) ctx.globalAlpha = 0.6;
+  ctx.fillStyle = focused ? "rgba(42,22,64,0.95)" : "rgba(18,12,30,0.8)";
+  rrect(ctx, x - w / 2, ly - 8, w, 15, 5);
+  ctx.fill();
   if (focused) {
-    ctx.font = "10px 'Trebuchet MS', system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    const w = ctx.measureText(label).width + 12;
-    ctx.fillStyle = "rgba(18,12,30,0.85)";
-    rrect(ctx, x - w / 2, top - 16, w, 14, 4);
-    ctx.fill();
-    ctx.fillStyle = "#fff";
-    ctx.fillText(label, x, top - 9);
+    ctx.strokeStyle = tintC;
+    ctx.lineWidth = 1.5;
+    rrect(ctx, x - w / 2, ly - 8, w, 15, 5);
+    ctx.stroke();
   }
+  ctx.fillStyle = focused ? "#ffffff" : "rgba(244,239,255,0.92)";
+  ctx.fillText(label, x, ly);
+  ctx.restore();
 }
