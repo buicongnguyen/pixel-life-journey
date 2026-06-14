@@ -26,6 +26,7 @@ import { STAGES } from "./stages";
 import { PARTNERS } from "./partners";
 import { OCCUPATIONS } from "./occupations";
 import { HOUSE_TIERS } from "./houses";
+import { EVENTS, type RandomEvent } from "./events";
 import { avatarLook, drawAvatar, drawPerson, drawRoom, drawStation } from "./sprites";
 import { createUI, type UIRefs } from "./ui";
 import { generateStory, type CauseOfEnd, type LifeStory } from "./story";
@@ -49,6 +50,7 @@ type Mode =
   | "occupation"
   | "house"
   | "timetravel"
+  | "event"
   | "transition"
   | "ending";
 
@@ -69,6 +71,9 @@ interface Snapshot {
   homeQuality: number;
   hadChild: boolean;
   spouseDeceased: boolean;
+  habitCount: number;
+  usedEvents: string[];
+  eventsLog: string[];
   healthSum: number;
   healthCount: number;
   historyLen: number;
@@ -93,6 +98,10 @@ export class Game {
   private occupation: Occupation | null = null;
   private homeQuality = 0;
   private spouseDeceased = false;
+  private habitCount = 0;
+  private eventCooldown = 2;
+  private usedEvents = new Set<string>();
+  private eventsLog: string[] = [];
   private timeline: Snapshot[] = [];
   private pendingHouseOptId: string | null = null;
   private history: HistoryEntry[] = [];
@@ -151,9 +160,19 @@ export class Game {
       weight: Math.round(this.weight),
       occupation: this.occupation?.id ?? null,
       homeQuality: this.homeQuality,
+      habitCount: this.habitCount,
+      events: [...this.eventsLog],
       timelineLen: this.timeline.filter(Boolean).length,
       historyLen: this.history.length,
     };
+  }
+
+  /** Test/debug: force a random event (by id, or a random eligible one). */
+  debugFireEvent(id?: string): string | null {
+    const e = id ? EVENTS.find((x) => x.id === id) : EVENTS[0];
+    if (!e || this.mode !== "playing") return null;
+    this.fireEvent(e);
+    return e.id;
   }
 
   /** Test/debug: choose an option by id in the current stage (ignores position). */
@@ -190,6 +209,10 @@ export class Game {
     this.occupation = null;
     this.homeQuality = 0;
     this.spouseDeceased = false;
+    this.habitCount = 0;
+    this.eventCooldown = 2;
+    this.usedEvents = new Set();
+    this.eventsLog = [];
     this.timeline = [];
     this.pendingHouseOptId = null;
     this.history = [];
@@ -237,6 +260,9 @@ export class Game {
       homeQuality: this.homeQuality,
       hadChild: this.hadChild,
       spouseDeceased: this.spouseDeceased,
+      habitCount: this.habitCount,
+      usedEvents: [...this.usedEvents],
+      eventsLog: [...this.eventsLog],
       healthSum: this.healthSum,
       healthCount: this.healthCount,
       historyLen: this.history.length,
@@ -360,6 +386,20 @@ export class Game {
     }
     if (opt.id === "baby") this.hadChild = true;
 
+    // "good habits" book: reading it adds up — 5+ reads pays off in lasting health
+    let habitBonus = 0;
+    if (opt.habit) {
+      this.habitCount += 1;
+      if (this.habitCount === 5) {
+        this.stats = applyEffects(this.stats, { health: 15, happiness: 5 });
+        habitBonus = 15;
+        this.hint("📗 Your good habits stuck for life! +15 ❤️");
+      } else if (this.habitCount > 5) {
+        this.stats = applyEffects(this.stats, { health: 4 });
+        habitBonus = 4;
+      }
+    }
+
     this.history.push({
       stageId: s.id,
       stageName: s.name,
@@ -368,8 +408,49 @@ export class Game {
       ageAt: this.age,
     });
     this.spawnFloats(eff, wDelta);
+    if (habitBonus) this.floats.push({ x: this.px, y: this.py - 90, text: `+${habitBonus} ❤️`, color: "#ff5d6c", life: 1.3 });
 
-    if (this.stats.health <= 0) this.finishLife("health", Math.round(this.age));
+    if (this.stats.health <= 0) return this.finishLife("health", Math.round(this.age));
+
+    // every so often, life throws a surprise (found wallet, lottery, …)
+    if (this.mode === "playing") this.maybeFireEvent();
+  }
+
+  // --- random "Easter egg" events -------------------------------------------
+
+  private maybeFireEvent(): void {
+    if (this.eventCooldown > 0) {
+      this.eventCooldown -= 1;
+      return;
+    }
+    if (Math.random() > 0.16) return; // ~1 in 6 actions once off cooldown
+    const pool = EVENTS.filter(
+      (e) =>
+        !(e.once && this.usedEvents.has(e.id)) &&
+        this.age >= (e.minAge ?? 0) &&
+        this.age <= (e.maxAge ?? 999)
+    );
+    if (pool.length === 0) return;
+    const total = pool.reduce((sum, e) => sum + e.weight, 0);
+    let r = Math.random() * total;
+    let chosen = pool[0];
+    for (const e of pool) {
+      r -= e.weight;
+      if (r <= 0) {
+        chosen = e;
+        break;
+      }
+    }
+    this.fireEvent(chosen);
+  }
+
+  private fireEvent(e: RandomEvent): void {
+    if (e.once) this.usedEvents.add(e.id);
+    this.eventCooldown = 4;
+    this.stats = applyEffects(this.stats, e.effects);
+    this.eventsLog.push(e.storyClause);
+    this.mode = "event";
+    this.showEvent(e);
   }
 
   /** Body-weight change implied by an option when it has no explicit `weight`. */
@@ -468,6 +549,8 @@ export class Game {
       occupation: this.occupation,
       homeQuality: this.homeQuality,
       widowed: this.spouseDeceased,
+      events: this.eventsLog,
+      habitMaster: this.habitCount >= 5,
     });
     this.mode = "ending";
     this.showEnding();
@@ -539,6 +622,10 @@ export class Game {
     this.homeQuality = snap.homeQuality;
     this.hadChild = snap.hadChild;
     this.spouseDeceased = snap.spouseDeceased;
+    this.habitCount = snap.habitCount;
+    this.usedEvents = new Set(snap.usedEvents);
+    this.eventsLog = [...snap.eventsLog];
+    this.eventCooldown = 2;
     this.healthSum = snap.healthSum;
     this.healthCount = snap.healthCount;
     this.partner = snap.partnerId ? PARTNERS.find((p) => p.id === snap.partnerId) ?? null : null;
@@ -665,7 +752,8 @@ export class Game {
       this.mode === "partner" ||
       this.mode === "occupation" ||
       this.mode === "house" ||
-      this.mode === "timetravel";
+      this.mode === "timetravel" ||
+      this.mode === "event";
     if (inRoom && this.stageIndex < STAGES.length) {
       const s = STAGES[this.stageIndex];
       const t = this.walkPhase;
@@ -931,6 +1019,24 @@ export class Game {
       btn.onclick = () => this.rewind(Number(btn.dataset.i));
     });
     this.ui.overlay.querySelector<HTMLButtonElement>("#plj-tt-cancel")!.onclick = () => {
+      this.mode = "playing";
+      this.clearOverlay();
+    };
+  }
+
+  private showEvent(e: RandomEvent): void {
+    const good = e.good !== false;
+    this.ui.overlay.innerHTML = `
+      <div class="plj-card plj-event ${good ? "plj-event-good" : "plj-event-bad"}">
+        <div class="plj-event-emoji">${e.emoji}</div>
+        <h2>${e.title}</h2>
+        ${e.cash ? `<p class="plj-event-cash">${e.cash}</p>` : ""}
+        <p class="plj-event-desc">${e.desc}</p>
+        <div class="plj-chips" style="justify-content:center">${effectChips(e.effects)}</div>
+        <button class="plj-btn" id="plj-event-ok">${good ? "Lucky me! ✨" : "Ugh… 😅"}</button>
+      </div>`;
+    this.ui.overlay.classList.add("show");
+    this.ui.overlay.querySelector<HTMLButtonElement>("#plj-event-ok")!.onclick = () => {
       this.mode = "playing";
       this.clearOverlay();
     };

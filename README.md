@@ -43,6 +43,11 @@ them in balance, and at the very end the game writes the **story of the life you
 - **🏠 A house** — buy what you can afford; a grand home is bright, a cheap one is cracked
   and run-down, and it becomes the backdrop of the rest of your life.
 - **⏳ Time travel** — rewind to any past age and try a different life.
+- **🎲 Twists of fate** — surprise events pop up as you live: find a wallet (+$100k), hit
+  a 🎟️ lottery jackpot (+$500k), inherit a fortune, go viral, adopt a puppy — or cop the
+  odd scam or medical bill. They're woven into your life story.
+- **📗 The good-habits book** — a special item that rewards repetition: read it **5+ times**
+  across your life and the habit sticks, giving you lasting health.
 
 Every stage has its **own hand-drawn pixel backdrop** — a pastel nursery, a classroom,
 a campus, an office, your home — and **everything is interconnected**: poverty is
@@ -110,6 +115,7 @@ src/
 ├── partners.ts    # the 8 marriage candidates
 ├── occupations.ts # careers + salary multipliers (pay scales with Smarts)
 ├── houses.ts      # buyable house tiers + home quality
+├── events.ts      # random "Easter egg" events (wallet, lottery, inheritance…)
 ├── stats.ts       # the meters (incl. weight) + research-grounded balance math
 ├── story.ts       # the life-story writer (pre-written comment bank)
 ├── sprites.ts     # pixel-art drawing (rooms, the growing character, stations)

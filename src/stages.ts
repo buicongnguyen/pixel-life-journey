@@ -107,6 +107,7 @@ export const STAGES: Stage[] = [
       { id: "phone", label: "Smartphone", icon: "📱", desc: "Your first phone. Fun and connected — but a real time-sink.", category: "fun", effects: { fun: 7, happiness: 3, health: -2, smarts: -2 }, storyTag: "toy_phone" },
       { id: "studyFriend", label: "Study pal", icon: "🧑‍🎓", person: "studyFriend", desc: "Do homework with a friend — you both learn more.", category: "smarts", effects: { smarts: 5, happiness: 4 }, storyTag: "friends" },
       { id: "playmate", label: "Friends", icon: "🧒", person: "playmate", desc: "Tag and hopscotch at recess with your gang.", category: "social", effects: { happiness: 7, health: 2, fun: 3 }, storyTag: "friends" },
+      { id: "habitbook", label: "Habits book", icon: "📗", desc: "Read about good habits. Read it 5+ times across life and it sticks — lasting health.", category: "smarts", effects: { smarts: 3, happiness: 2 }, habit: true, storyTag: "read" },
     ],
   },
   {
@@ -128,6 +129,7 @@ export const STAGES: Stage[] = [
       { id: "phone", label: "Smartphone", icon: "📱", desc: "Glued to your phone. Social and fun, but distracting.", category: "fun", effects: { fun: 8, happiness: 2, health: -3, smarts: -3 }, storyTag: "toy_phone" },
       { id: "bestFriend", label: "Best friend", icon: "🧑‍🤝‍🧑", person: "bestFriend", desc: "An inseparable best friend who has your back.", category: "social", effects: { happiness: 8, health: 2 }, storyTag: "friends" },
       { id: "crush", label: "First crush", icon: "😊", person: "crush", desc: "A nervous, giddy first crush. Butterflies everywhere.", category: "social", effects: { happiness: 9, fun: 3, smarts: -2 }, storyTag: "love" },
+      { id: "habitbook", label: "Habits book", icon: "📗", desc: "Read about good habits. Read it 5+ times across life and it sticks — lasting health.", category: "smarts", effects: { smarts: 3, happiness: 2 }, habit: true, storyTag: "read" },
     ],
   },
   {
@@ -148,6 +150,7 @@ export const STAGES: Stage[] = [
       { id: "fastfood", label: "Fast food", icon: "🍟", desc: "Daily fast food. Convenient but it adds up.", category: "food", effects: { fun: 6, health: -6 }, storyTag: "junkfood" },
       { id: "crush", label: "First love", icon: "💞", person: "crush", desc: "Fall head over heels. Dizzy, wonderful, a little distracting.", category: "social", effects: { happiness: 9, smarts: -2 }, storyTag: "love" },
       { id: "bestFriend", label: "Best friends", icon: "🧑‍🤝‍🧑", person: "bestFriend", desc: "The friends you'll remember forever.", category: "social", effects: { happiness: 8, health: 2 }, storyTag: "friends" },
+      { id: "habitbook", label: "Habits book", icon: "📗", desc: "Read about good habits. Read it 5+ times across life and it sticks — lasting health.", category: "smarts", effects: { smarts: 3, happiness: 2 }, habit: true, storyTag: "read" },
     ],
   },
   {
@@ -168,6 +171,7 @@ export const STAGES: Stage[] = [
       { id: "ramen", label: "Instant noodles", icon: "🍜", desc: "Live on cheap noodles. Saves money, not your health.", category: "food", effects: { fun: 3, health: -5, wealth: 2 }, storyTag: "junkfood" },
       { id: "roommate", label: "Roommate", icon: "🧑", person: "roommate", desc: "Late-night talks and instant ramen with your roommate.", category: "social", effects: { happiness: 6, fun: 4 }, storyTag: "friends" },
       { id: "crush", label: "Romance", icon: "💞", person: "crush", desc: "A serious campus romance. Heady and warm.", category: "social", effects: { happiness: 9, fun: 3 }, storyTag: "love" },
+      { id: "habitbook", label: "Habits book", icon: "📗", desc: "Read about good habits. Read it 5+ times across life and it sticks — lasting health.", category: "smarts", effects: { smarts: 3, happiness: 2 }, habit: true, storyTag: "read" },
     ],
   },
   {
@@ -236,6 +240,7 @@ export const STAGES: Stage[] = [
       { id: "upskill", label: "Upskill", icon: "📚", desc: "Keep learning at work — stay sharp and lift your earnings.", category: "smarts", effects: { smarts: 6, fun: -2 }, storyTag: "upskill" },
       { id: "spouse", label: "Spouse", icon: "💑", person: "spouse", desc: "Grow old together. A partner through midlife's storms.", category: "social", effects: { happiness: 7, health: 3 }, storyTag: "family" },
       { id: "child", label: "Your kids", icon: "🧑", person: "child", desc: "Raise and guide your growing children.", category: "social", effects: { happiness: 7, smarts: 2 }, storyTag: "family" },
+      { id: "habitbook", label: "Habits book", icon: "📗", desc: "Read about good habits. Read it 5+ times across life and it sticks — lasting health.", category: "smarts", effects: { smarts: 3, happiness: 2 }, habit: true, storyTag: "read" },
     ],
   },
   {
@@ -257,6 +262,7 @@ export const STAGES: Stage[] = [
       { id: "grandkid", label: "Grandkids", icon: "👶", person: "grandkid", desc: "Spoil the grandchildren rotten. The sweetest joy.", category: "social", effects: { happiness: 9, health: 2 }, storyTag: "grandkids" },
       { id: "spouse", label: "Spouse", icon: "💑", person: "spouse", desc: "A lifetime together, hand in hand.", category: "social", effects: { happiness: 7, health: 3 }, storyTag: "family" },
       { id: "oldFriend", label: "Old friends", icon: "🧓", person: "oldFriend", desc: "Reminisce with lifelong friends. Connection keeps you alive.", category: "social", effects: { happiness: 8, health: 3 }, storyTag: "friends" },
+      { id: "habitbook", label: "Habits book", icon: "📗", desc: "Read about good habits. Read it 5+ times across life and it sticks — lasting health.", category: "smarts", effects: { smarts: 3, happiness: 2 }, habit: true, storyTag: "read" },
     ],
   },
   {

@@ -22,6 +22,10 @@ export interface StoryInput {
   occupation: Occupation | null;
   homeQuality: number;
   widowed: boolean;
+  /** Short clauses for lucky/unlucky events that happened (see events.ts). */
+  events: string[];
+  /** Read the good-habits book 5+ times. */
+  habitMaster: boolean;
 }
 
 export interface LifeStory {
@@ -144,9 +148,15 @@ function joinClauses(tags: string[]): string {
   return clauses.slice(0, -1).join(", ") + ", and you " + clauses[clauses.length - 1];
 }
 
+/** Join verb-phrase clauses into "a, b and c" (the leading "you" is in the sentence). */
+function joinList(items: string[]): string {
+  if (items.length === 1) return items[0];
+  return items.slice(0, -1).join(", ") + " and " + items[items.length - 1];
+}
+
 export function generateStory(input: StoryInput): LifeStory {
   const { history, finalStats, partner, deathAge, cause, hadChild } = input;
-  const { gender, weight, occupation, homeQuality, widowed } = input;
+  const { gender, weight, occupation, homeQuality, widowed, events, habitMaster } = input;
   const paragraphs: string[] = [];
 
   // Opening
@@ -188,6 +198,17 @@ export function generateStory(input: StoryInput): LifeStory {
   } else {
     paragraphs.push(
       "You walked through life as your own person, never marrying — free, and on your own terms."
+    );
+  }
+
+  // Lucky/unlucky twists of fate
+  if (events.length) {
+    const uniq = [...new Set(events)];
+    paragraphs.push(`Fate threw you some surprises along the way: you ${joinList(uniq)}.`);
+  }
+  if (habitMaster) {
+    paragraphs.push(
+      "And through it all you kept reading about good habits — book after book — which gave you a clear mind and a body that stayed strong."
     );
   }
 

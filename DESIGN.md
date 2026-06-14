@@ -98,6 +98,30 @@ life story records it.
 
 ---
 
+## 2d. Twists of fate & special items
+
+**🎲 Random events** ([`events.ts`](src/events.ts)) — every so often (roughly 1 in 6
+actions, after a short cooldown) life throws a surprise that pops up, applies its effect,
+and gets woven into your life story:
+
+- 👛 **Found a wallet** → a $100,000 reward
+- 🎟️ **Lottery jackpot** → $500,000 (once per life, rare)
+- 📜 **Inheritance** from family → $250,000 (once)
+- 🎉 surprise bonus, 🐶 a stray puppy, 🌟 going viral, 🤝 a repaid loan, 🏆 a contest win,
+  🎓 a scholarship, 🎁 a free gym year…
+- …and the occasional setback to keep luck honest: ⚠️ a scam, 🏥 a medical bill, 💥 a
+  cracked phone.
+
+Events are age-gated (no lottery for a toddler) and weighted by rarity. To add one, drop
+an entry in `EVENTS`.
+
+**📗 The good-habits book** (a `habit`-flagged option in many stages) — a special item with
+a *cumulative* payoff. Each read gives a little smarts and happiness, but read it **5+
+times across your life** and the habit sticks: a one-time **+15 ❤️** at the 5th read, then
+**+4 ❤️** every read after. Good habits compound — just like in real life.
+
+---
+
 ## 3. Balance model (grounded in real research)
 
 These relationships are deliberately modelled on published findings, so "playing

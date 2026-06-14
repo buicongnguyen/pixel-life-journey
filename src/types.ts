@@ -73,6 +73,8 @@ export interface LifeOption {
   weight?: number;
   /** Choosing this opens the house-buying picker instead of a normal action. */
   opensHousePicker?: boolean;
+  /** A repeatable "good habit" — reading it 5+ times across life pays off in health. */
+  habit?: boolean;
   /** Key into the story comment bank (see story.ts). */
   storyTag?: string;
 }
