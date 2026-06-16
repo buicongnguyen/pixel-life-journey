@@ -760,7 +760,8 @@ function drawHomeQuality(ctx: CanvasRenderingContext2D, theme: RoomTheme, W: num
     }
     return;
   }
-  for (let i = 0; i < q; i++) {
+  const paintings = Math.min(q, 4);
+  for (let i = 0; i < paintings; i++) {
     const fx = 220 + i * 48;
     px(ctx, fx, 30, 34, 28, "#5a4632");
     px(ctx, fx + 4, 34, 26, 20, theme.accent);
@@ -770,6 +771,14 @@ function drawHomeQuality(ctx: CanvasRenderingContext2D, theme: RoomTheme, W: num
   if (q >= 4) {
     px(ctx, 0, 0, W, 5, "#ffd76b");
     drawPlant(ctx, W - 40, floorY);
+  }
+  if (q >= 5) {
+    // luxury villa: a second gold band and a little hanging chandelier
+    px(ctx, 0, 6, W, 2, "#ffe9a8");
+    const cx = W * 0.5;
+    px(ctx, cx - 1, 8, 2, 12, "#caa44a");
+    ellipse(ctx, cx, 22, 12, 6, "#ffe27a");
+    ellipse(ctx, cx, 22, 7, 4, "#fff4c2");
   }
 }
 

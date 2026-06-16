@@ -26,6 +26,12 @@ export interface StoryInput {
   events: string[];
   /** Read the good-habits book 5+ times. */
   habitMaster: boolean;
+  /** Vehicles owned, pre-formatted ("a car", "a bicycle"). */
+  vehicles: string[];
+  /** Learned money management. */
+  moneyWise: boolean;
+  /** How many properties were owned in total (>1 = a little landlord). */
+  propertiesOwned: number;
 }
 
 export interface LifeStory {
@@ -80,6 +86,14 @@ const TAG_CLAUSES: Record<string, string> = {
   toy_doll: "treasured your dolls and toys",
   toy_phone: "were always on your phone",
   upskill: "kept learning new skills at work",
+  chores: "earned your own pocket money with odd jobs",
+  invest_stocks: "put your money to work in the markets",
+  moneywise: "got smart about money",
+  gamble: "couldn't resist a flutter now and then",
+  veh_bike: "pedalled everywhere on your bicycle",
+  veh_moto: "felt the wind on your motorbike",
+  veh_car: "drove yourself wherever life called",
+  veh_sports: "turned heads in your sports car",
 };
 
 /** The pre-written "why it mattered" notes — the heart of the storytelling. */
@@ -127,8 +141,8 @@ function dominantTags(history: HistoryEntry[], stageIds: string[], n: number): s
   for (const h of history) {
     if (!h.storyTag) continue;
     if (!stageIds.includes(h.stageId)) continue;
-    // job & house are narrated by their own paragraph, so keep them out of eras
-    if (h.storyTag.startsWith("job_") || h.storyTag === "home") continue;
+    // job, house & rentals are narrated by their own paragraph — keep them out of eras
+    if (h.storyTag.startsWith("job_") || h.storyTag === "home" || h.storyTag === "rental") continue;
     counts.set(h.storyTag, (counts.get(h.storyTag) ?? 0) + 1);
   }
   return [...counts.entries()]
@@ -157,6 +171,7 @@ function joinList(items: string[]): string {
 export function generateStory(input: StoryInput): LifeStory {
   const { history, finalStats, partner, deathAge, cause, hadChild } = input;
   const { gender, weight, occupation, homeQuality, widowed, events, habitMaster } = input;
+  const { vehicles, moneyWise, propertiesOwned } = input;
   const paragraphs: string[] = [];
 
   // Opening
@@ -181,8 +196,12 @@ export function generateStory(input: StoryInput): LifeStory {
   });
 
   // Work + home
-  const work = workHomeParagraph(occupation, homeQuality);
+  const work = workHomeParagraph(occupation, homeQuality, propertiesOwned);
   if (work) paragraphs.push(work);
+
+  // Money, wheels and possessions
+  const money = moneyParagraph(vehicles, moneyWise, propertiesOwned);
+  if (money) paragraphs.push(money);
 
   // Partner + family
   if (partner) {
@@ -233,7 +252,7 @@ export function generateStory(input: StoryInput): LifeStory {
   };
 }
 
-function workHomeParagraph(occupation: Occupation | null, homeQuality: number): string | null {
+function workHomeParagraph(occupation: Occupation | null, homeQuality: number, properties: number): string | null {
   if (!occupation && homeQuality === 0) return null;
   const parts: string[] = [];
   if (occupation) {
@@ -242,14 +261,28 @@ function workHomeParagraph(occupation: Occupation | null, homeQuality: number): 
   }
   if (homeQuality > 0) {
     const homes: Record<number, string> = {
-      1: "and lived in a cramped little flat with cracks in the walls",
-      2: "and made a cosy house your home",
-      3: "and settled into a lovely, bright home",
-      4: "and lived in a grand house befitting your success",
+      1: "and lived in a cramped little studio with cracks in the walls",
+      2: "and made a tidy city condo your home",
+      3: "and settled into a bright, roomy townhouse",
+      4: "and lived in a lovely family house with a garden",
+      5: "and lived in a magnificent luxury villa befitting your success",
     };
     parts.push((occupation ? "" : "You ") + homes[homeQuality]);
   }
-  return parts.join(" ").replace(/^You and/, "You") + ".";
+  let para = parts.join(" ").replace(/^You and/, "You") + ".";
+  if (properties > 1) {
+    para += ` In time you built up ${properties === 2 ? "a second property" : `a little portfolio of ${properties} properties`}, renting out the rest for a steady income.`;
+  }
+  return para;
+}
+
+function moneyParagraph(vehicles: string[], moneyWise: boolean, properties: number): string | null {
+  const bits: string[] = [];
+  if (vehicles.length) bits.push(`got around on ${joinList(vehicles)}`);
+  if (moneyWise) bits.push("learned to handle money wisely, and watched your savings grow");
+  if (!bits.length) return null;
+  const lead = properties > 1 ? "You had a real head for money: you " : "When it came to money and things, you ";
+  return lead + joinList(bits) + ".";
 }
 
 function partnerLine(p: Partner): string {

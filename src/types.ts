@@ -50,6 +50,26 @@ export type SceneKind =
   | "home"
   | "sunset";
 
+/** A "try your luck" choice: spend a stake for a chance at a payout. */
+export interface GambleSpec {
+  /** Wealth spent to play. Gated — you can't play if you can't afford the stake. */
+  stake: number;
+  /** Chance (0..1) of the big win. */
+  jackpotChance: number;
+  /** Wealth gained on the jackpot. */
+  jackpot: number;
+  /** Chance (0..1) of a small win (checked after the jackpot). */
+  prizeChance: number;
+  /** Wealth gained on a small win. */
+  prize: number;
+  /** Story clause when you hit the jackpot. */
+  jackpotStory: string;
+  /** Story clause for a small win. */
+  prizeStory: string;
+  /** Story clause when you lose the stake. */
+  bustStory: string;
+}
+
 export interface LifeOption {
   id: string;
   /** Short label drawn under the station. */
@@ -73,8 +93,30 @@ export interface LifeOption {
   weight?: number;
   /** Choosing this opens the house-buying picker instead of a normal action. */
   opensHousePicker?: boolean;
+  /** Choosing this opens the vehicle-buying picker (bike / motorbike / car…). */
+  opensVehiclePicker?: boolean;
   /** A repeatable "good habit" — reading it 5+ times across life pays off in health. */
   habit?: boolean;
+  /**
+   * Wealth this choice costs. The action is GATED: if you can't afford the cost,
+   * nothing happens ("not enough money"). Otherwise the cost is spent on top of
+   * the option's effects. Use for things you pay to do (games, parties, travel…).
+   */
+  cost?: number;
+  /**
+   * A once-in-a-life purchase (a vehicle, a learned skill). Owned forever once
+   * bought, so it stops appearing in later rooms. Almost always paired with cost.
+   */
+  permanent?: boolean;
+  /**
+   * Choosing this moves this much wealth into your investment pot (gated by
+   * affordability like `cost`). The pot compounds over the stages that follow.
+   */
+  invest?: number;
+  /** Learning money management — switches on smarter, steadier investment returns. */
+  moneyMgmt?: boolean;
+  /** A "try your luck" station — spend a stake for a chance at a windfall. */
+  gamble?: GambleSpec;
   /** Key into the story comment bank (see story.ts). */
   storyTag?: string;
 }
@@ -153,9 +195,30 @@ export interface HouseTier {
   emoji: string;
   /** Wealth cost. */
   cost: number;
-  /** 1 (run-down, cracked) .. 4 (mansion). Drives the home background. */
+  /** 1 (run-down, cracked) .. 5 (luxury villa). Drives the home background. */
   quality: number;
   /** Happiness gained from buying it. */
   happiness: number;
+  /**
+   * Passive wealth drained per action while you live here (mortgage / upkeep).
+   * Pricier homes cost more to keep — so an expensive home quietly taxes your
+   * other plans. 0 for the cheapest places.
+   */
+  upkeep: number;
+  /** Wealth earned per stage when this property is rented out (a 2nd+ home). */
+  rentYield: number;
   blurb: string;
+}
+
+/** A vehicle the player can buy — a one-off, owned-for-life purchase. */
+export interface VehicleTier {
+  id: string;
+  name: string;
+  emoji: string;
+  /** Wealth cost (gated by affordability). */
+  cost: number;
+  /** One-off stat boost when bought. */
+  effects: Partial<Stats>;
+  blurb: string;
+  storyTag: string;
 }

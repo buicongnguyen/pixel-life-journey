@@ -7,6 +7,7 @@ import type {
   Partner,
   Stats,
   StatKey,
+  VehicleTier,
 } from "./types";
 import {
   START_STATS,
@@ -26,6 +27,7 @@ import { STAGES } from "./stages";
 import { PARTNERS } from "./partners";
 import { OCCUPATIONS } from "./occupations";
 import { HOUSE_TIERS } from "./houses";
+import { VEHICLES } from "./vehicles";
 import { EVENTS, type RandomEvent } from "./events";
 import { avatarLook, drawAvatar, drawPerson, drawRoom, drawStation } from "./sprites";
 import { createUI, type UIRefs } from "./ui";
@@ -49,6 +51,7 @@ type Mode =
   | "partner"
   | "occupation"
   | "house"
+  | "vehicle"
   | "timetravel"
   | "event"
   | "transition"
@@ -69,9 +72,13 @@ interface Snapshot {
   partnerId: string | null;
   occupationId: string | null;
   homeQuality: number;
+  homeIds: string[];
   hadChild: boolean;
   spouseDeceased: boolean;
   habitCount: number;
+  investments: number;
+  moneyWise: boolean;
+  owned: string[];
   usedEvents: string[];
   eventsLog: string[];
   healthSum: number;
@@ -97,6 +104,12 @@ export class Game {
   private weight = START_WEIGHT;
   private occupation: Occupation | null = null;
   private homeQuality = 0;
+  private homes: HouseTier[] = []; // every property bought; you live in the best one
+  private houseUpkeep = 0; // per-action wealth drain from your home (mortgage/upkeep)
+  private rentalIncome = 0; // per-stage wealth from spare homes rented out
+  private investments = 0; // wealth in the market — compounds over the stages
+  private moneyWise = false; // learned money management → better, steadier returns
+  private owned = new Set<string>(); // one-off, owned-for-life purchases (vehicles, skills)
   private spouseDeceased = false;
   private habitCount = 0;
   private eventCooldown = 2;
@@ -160,6 +173,12 @@ export class Game {
       weight: Math.round(this.weight),
       occupation: this.occupation?.id ?? null,
       homeQuality: this.homeQuality,
+      homes: this.homes.map((h) => h.id),
+      houseUpkeep: Math.round(this.houseUpkeep * 100) / 100,
+      rentalIncome: this.rentalIncome,
+      investments: Math.round(this.investments * 10) / 10,
+      moneyWise: this.moneyWise,
+      owned: [...this.owned],
       habitCount: this.habitCount,
       events: [...this.eventsLog],
       timelineLen: this.timeline.filter(Boolean).length,
@@ -184,8 +203,8 @@ export class Game {
     this.doAction();
   }
 
-  /** Test/debug: pick a partner / occupation / house tier / rewind by id. */
-  debugPick(kind: "partner" | "occupation" | "house" | "rewind", id: string): void {
+  /** Test/debug: pick a partner / occupation / house / vehicle / rewind by id. */
+  debugPick(kind: "partner" | "occupation" | "house" | "vehicle" | "rewind", id: string): void {
     if (kind === "partner") {
       const p = PARTNERS.find((x) => x.id === id);
       if (p) this.pickPartner(p);
@@ -195,6 +214,9 @@ export class Game {
     } else if (kind === "house") {
       const h = HOUSE_TIERS.find((x) => x.id === id);
       if (h) this.buyHouse(h);
+    } else if (kind === "vehicle") {
+      const v = VEHICLES.find((x) => x.id === id);
+      if (v) this.buyVehicle(v);
     } else if (kind === "rewind") {
       this.rewind(Number(id));
     }
@@ -208,6 +230,12 @@ export class Game {
     this.weight = START_WEIGHT;
     this.occupation = null;
     this.homeQuality = 0;
+    this.homes = [];
+    this.houseUpkeep = 0;
+    this.rentalIncome = 0;
+    this.investments = 0;
+    this.moneyWise = false;
+    this.owned = new Set();
     this.spouseDeceased = false;
     this.habitCount = 0;
     this.eventCooldown = 2;
@@ -259,9 +287,13 @@ export class Game {
       partnerId: this.partner?.id ?? null,
       occupationId: this.occupation?.id ?? null,
       homeQuality: this.homeQuality,
+      homeIds: this.homes.map((h) => h.id),
       hadChild: this.hadChild,
       spouseDeceased: this.spouseDeceased,
       habitCount: this.habitCount,
+      investments: this.investments,
+      moneyWise: this.moneyWise,
+      owned: [...this.owned],
       usedEvents: [...this.usedEvents],
       eventsLog: [...this.eventsLog],
       healthSum: this.healthSum,
@@ -274,6 +306,10 @@ export class Game {
   private optionAvailable(o: LifeOption): boolean {
     if (o.person === "spouse") return !!this.partner && !this.spouseDeceased;
     if (o.person === "child" || o.person === "grandkid") return this.hadChild;
+    // one-off purchases/skills disappear once you own them
+    if (o.permanent && this.owned.has(o.id)) return false;
+    // the vehicle picker hides once you own every vehicle
+    if (o.opensVehiclePicker) return VEHICLES.some((v) => !this.owned.has("veh_" + v.id));
     return true;
   }
 
@@ -325,7 +361,9 @@ export class Game {
     s.fun = clampStat(s.fun - 0.45);
     s.happiness = clampStat(s.happiness - 0.25);
     s.smarts = clampStat(s.smarts - 0.15);
-    s.wealth = clampStat(s.wealth - 0.2);
+    // baseline cost of living + the upkeep on the home you live in (a grander
+    // home quietly taxes everything else you'd like to do with your money)
+    s.wealth = clampStat(s.wealth - 0.2 - this.houseUpkeep);
     // knock-on effects that wire the meters together (poverty, loneliness, etc.)
     const fx = crossEffects(s);
     s.health = clampStat(s.health + fx.health);
@@ -352,12 +390,34 @@ export class Game {
       this.hint("You already did that this chapter.");
       return;
     }
+    if (opt.permanent && this.owned.has(opt.id)) {
+      this.hint("You already own that.");
+      return;
+    }
 
-    // buying a house opens a picker instead of applying a normal action
+    // buying a house / vehicle opens a picker instead of applying a normal action
     if (opt.opensHousePicker) {
       this.pendingHouseOptId = opt.id;
       this.mode = "house";
       this.showHouse();
+      return;
+    }
+    if (opt.opensVehiclePicker) {
+      if (!VEHICLES.some((v) => !this.owned.has("veh_" + v.id))) {
+        this.hint("You already own every vehicle!");
+        return;
+      }
+      this.mode = "vehicle";
+      this.showVehicle();
+      return;
+    }
+
+    // Affordability gate: anything with a price — a cost, an investment stake, or
+    // a gamble stake — simply can't be done when you're too broke. Nothing
+    // happens, just like real life: not enough money to do that.
+    const price = (opt.cost ?? 0) + (opt.invest ?? 0) + (opt.gamble?.stake ?? 0);
+    if (price > 0 && this.stats.wealth < price) {
+      this.hint("💸 Not enough money for that.");
       return;
     }
 
@@ -368,7 +428,42 @@ export class Game {
       const jobFactor = this.occupation?.salaryMul ?? 1;
       eff.wealth = Math.round(eff.wealth * smartFactor * jobFactor);
     }
+    // pay any up-front cost
+    if (opt.cost) eff.wealth = (eff.wealth ?? 0) - opt.cost;
+    // buying stocks moves the stake out of your wallet and into the market pot
+    if (opt.invest) {
+      this.investments += opt.invest;
+      eff.wealth = (eff.wealth ?? 0) - opt.invest;
+    }
+    // learning money management switches on smarter, steadier returns for life
+    if (opt.moneyMgmt) this.moneyWise = true;
+
+    // try-your-luck: roll the gamble and fold the outcome into this action
+    let gambleClause: string | null = null;
+    if (opt.gamble) {
+      const g = opt.gamble;
+      eff.wealth = (eff.wealth ?? 0) - g.stake;
+      const r = Math.random();
+      if (r < g.jackpotChance) {
+        eff.wealth += g.jackpot;
+        eff.happiness = (eff.happiness ?? 0) + 10;
+        gambleClause = g.jackpotStory;
+        this.floats.push({ x: this.px, y: this.py - 102, text: "✨ JACKPOT!", color: "#ffd23f", life: 1.7 });
+      } else if (r < g.jackpotChance + g.prizeChance) {
+        eff.wealth += g.prize;
+        eff.happiness = (eff.happiness ?? 0) + 4;
+        gambleClause = g.prizeStory;
+      } else {
+        eff.happiness = (eff.happiness ?? 0) - 3;
+        gambleClause = g.bustStory;
+      }
+    }
+    // one-off lifetime purchases/skills are remembered so they don't reappear
+    if (opt.permanent) this.owned.add(opt.id);
+
     this.stats = applyEffects(this.stats, eff);
+    if (gambleClause) this.eventsLog.push(gambleClause);
+    if (opt.invest) this.floats.push({ x: this.px, y: this.py - 88, text: `${opt.invest} 📈`, color: "#5db8ff", life: 1.3 });
 
     // body weight: explicit delta, else derived from what kind of action it is
     const wDelta = opt.weight ?? this.autoWeightDelta(opt);
@@ -500,6 +595,33 @@ export class Game {
       lines.push(`Your studying paid off — +${bonus} 💰 to your starting salary.`);
     }
 
+    // your investment pot compounds between chapters — Smarts and money sense
+    // grow the returns, but markets can dip too. Gains are cashed into wealth.
+    if (this.investments > 0) {
+      const dipChance = this.moneyWise ? 0.1 : 0.18;
+      if (Math.random() < dipChance) {
+        const loss = 0.08 + Math.random() * 0.16;
+        this.investments = Math.max(0, this.investments * (1 - loss));
+        lines.push(`📉 Markets dipped — your investments slid to ~${Math.round(this.investments)} 💰. You hold on.`);
+      } else {
+        const rate = 0.12 + this.stats.smarts * 0.0014 + (this.moneyWise ? 0.06 : 0);
+        this.investments *= 1 + rate;
+        const realised = Math.round(this.investments * 0.22);
+        this.investments = Math.max(0, this.investments - realised);
+        if (realised > 0) {
+          this.stats.wealth = clampStat(this.stats.wealth + realised);
+          lines.push(`📈 Investments grew — you cashed out +${realised} 💰 (pot ~${Math.round(this.investments)} 💰).`);
+        }
+      }
+      this.investments = Math.min(this.investments, 300); // keep the pot sane
+    }
+
+    // spare properties pay rent every chapter
+    if (this.rentalIncome > 0) {
+      this.stats.wealth = clampStat(this.stats.wealth + this.rentalIncome);
+      lines.push(`🏘️ Rental income: +${this.rentalIncome} 💰 from your ${this.homes.length - 1 > 1 ? "properties" : "spare property"}.`);
+    }
+
     // wealth nudges happiness with diminishing returns (Kahneman/Killingsworth)
     this.stats.happiness = clampStat(this.stats.happiness + wealthHappinessBias(this.stats.wealth));
     this.sampleHealth();
@@ -549,6 +671,9 @@ export class Game {
       widowed: this.spouseDeceased,
       events: this.eventsLog,
       habitMaster: this.habitCount >= 5,
+      vehicles: VEHICLES.filter((v) => this.owned.has("veh_" + v.id)).map((v) => `a ${v.name.toLowerCase()}`),
+      moneyWise: this.moneyWise,
+      propertiesOwned: this.homes.length,
     });
     this.mode = "ending";
     this.showEnding();
@@ -591,9 +716,10 @@ export class Game {
       this.hint("You can't afford that one yet.");
       return;
     }
+    const owningAlready = this.homes.length > 0;
     this.stats = applyEffects(this.stats, { wealth: -h.cost, happiness: h.happiness });
-    this.homeQuality = Math.max(this.homeQuality, h.quality); // upgrades only, never downgrade
-    if (this.pendingHouseOptId) this.usedOnce.add(this.pendingHouseOptId);
+    this.homes.push(h);
+    this.recomputeHomes();
     this.pendingHouseOptId = null;
     this.age += this.stageStep();
     this.passiveTick();
@@ -602,12 +728,70 @@ export class Game {
       stageId: STAGES[this.stageIndex].id,
       stageName: STAGES[this.stageIndex].name,
       optionId: "house_" + h.id,
-      storyTag: "home",
+      storyTag: owningAlready ? "rental" : "home",
       ageAt: this.age,
     });
     this.mode = "playing";
     this.clearOverlay();
-    this.hint(`${h.emoji} You bought a ${h.name.toLowerCase()}!`);
+    this.hint(
+      owningAlready
+        ? `${h.emoji} A second property! You'll rent it out for income.`
+        : `${h.emoji} You bought a ${h.name.toLowerCase()}!`
+    );
+  }
+
+  /**
+   * You live in the nicest place you own (that sets the home background and its
+   * upkeep); every other property is rented out for a per-stage income.
+   */
+  private recomputeHomes(): void {
+    if (this.homes.length === 0) {
+      this.homeQuality = 0;
+      this.houseUpkeep = 0;
+      this.rentalIncome = 0;
+      return;
+    }
+    let best = this.homes[0];
+    for (const h of this.homes) if (h.quality > best.quality) best = h;
+    this.homeQuality = best.quality;
+    this.houseUpkeep = best.upkeep;
+    // the home you live in earns nothing; the rest are rentals
+    let rent = 0;
+    let usedLiveIn = false;
+    for (const h of this.homes) {
+      if (h === best && !usedLiveIn) { usedLiveIn = true; continue; }
+      rent += h.rentYield;
+    }
+    this.rentalIncome = rent;
+  }
+
+  private buyVehicle(v: VehicleTier): void {
+    const key = "veh_" + v.id;
+    if (this.owned.has(key)) {
+      this.hint("You already own that.");
+      return;
+    }
+    if (this.stats.wealth < v.cost) {
+      this.hint("You can't afford that one yet.");
+      return;
+    }
+    this.owned.add(key);
+    this.stats = applyEffects(this.stats, { ...v.effects, wealth: (v.effects.wealth ?? 0) - v.cost });
+    this.age += this.stageStep();
+    this.passiveTick();
+    this.sampleHealth();
+    this.history.push({
+      stageId: STAGES[this.stageIndex].id,
+      stageName: STAGES[this.stageIndex].name,
+      optionId: "veh_" + v.id,
+      storyTag: v.storyTag,
+      ageAt: this.age,
+    });
+    this.spawnFloats({ ...v.effects, wealth: (v.effects.wealth ?? 0) - v.cost });
+    this.mode = "playing";
+    this.clearOverlay();
+    this.hint(`${v.emoji} You bought a ${v.name.toLowerCase()}!`);
+    if (this.stats.health <= 0) return this.finishLife("health", Math.round(this.age));
   }
 
   /** Time travel: jump back to the start of a previously-visited stage. */
@@ -617,10 +801,14 @@ export class Game {
     this.stats = { ...snap.stats };
     this.weight = snap.weight;
     this.age = snap.age;
-    this.homeQuality = snap.homeQuality;
+    this.homes = snap.homeIds.map((id) => HOUSE_TIERS.find((h) => h.id === id)).filter(Boolean) as HouseTier[];
+    this.recomputeHomes();
     this.hadChild = snap.hadChild;
     this.spouseDeceased = snap.spouseDeceased;
     this.habitCount = snap.habitCount;
+    this.investments = snap.investments;
+    this.moneyWise = snap.moneyWise;
+    this.owned = new Set(snap.owned);
     this.usedEvents = new Set(snap.usedEvents);
     this.eventsLog = [...snap.eventsLog];
     this.eventCooldown = 2;
@@ -750,6 +938,7 @@ export class Game {
       this.mode === "partner" ||
       this.mode === "occupation" ||
       this.mode === "house" ||
+      this.mode === "vehicle" ||
       this.mode === "timetravel" ||
       this.mode === "event";
     if (inRoom && this.stageIndex < STAGES.length) {
@@ -833,10 +1022,23 @@ export class Game {
       return;
     }
     const opt = this.stations[this.focusIndex].opt;
+    const mk = (text: string, color: string) => `<span class="plj-chip" style="color:${color}">${text}</span>`;
+    const extra: string[] = [];
+    if (opt.cost) extra.push(mk(`−${opt.cost} 💰`, "#ff8a8a"));
+    if (opt.invest) extra.push(mk(`invest ${opt.invest} 📈`, "#5db8ff"));
+    if (opt.gamble) {
+      extra.push(mk(`stake ${opt.gamble.stake} 💰`, "#ff8a8a"));
+      extra.push(mk(`win up to ${opt.gamble.jackpot} 💰`, "#3ddc84"));
+    }
+    const price = (opt.cost ?? 0) + (opt.invest ?? 0) + (opt.gamble?.stake ?? 0);
+    const broke = price > 0 && this.stats.wealth < price;
+    const press = broke
+      ? `<b class="plj-press" style="background:#5a2a33;color:#ffc4c4">💸 can't afford</b>`
+      : `<b class="plj-press">SPACE</b>`;
     panel.innerHTML =
       `<span class="plj-focus-title">${opt.icon} ${opt.label}</span>` +
       `<span class="plj-focus-desc">${opt.desc}</span>` +
-      `<span class="plj-chips">${effectChips(opt.effects)}<b class="plj-press">SPACE</b></span>`;
+      `<span class="plj-chips">${effectChips(opt.effects)}${extra.join("")}${press}</span>`;
   }
 
   private hint(text: string): void {
@@ -953,22 +1155,28 @@ export class Game {
   }
 
   private showHouse(): void {
-    const stars = (q: number) => "★".repeat(q) + "☆".repeat(4 - q);
+    const stars = (q: number) => "★".repeat(q) + "☆".repeat(5 - q);
     const cards = HOUSE_TIERS.map((h) => {
       const afford = this.stats.wealth >= h.cost;
+      const upkeep = h.upkeep > 0 ? `<span class="plj-chip" style="color:#ffb4b4">−${h.upkeep}/yr upkeep</span>` : "";
       return `
       <button class="plj-partner${afford ? "" : " locked"}" data-id="${h.id}" ${afford ? "" : "disabled"}>
         <span class="plj-partner-face">${h.emoji}</span>
         <span class="plj-partner-name">${h.name}</span>
         <span class="plj-partner-title">${stars(h.quality)}</span>
         <span class="plj-partner-blurb">${h.blurb}</span>
-        <span class="plj-chips"><span class="plj-chip" style="color:#ff8a8a">-${h.cost} 💰</span><span class="plj-chip" style="color:#ffd23f">+${h.happiness} 😊</span></span>
+        <span class="plj-chips"><span class="plj-chip" style="color:#ff8a8a">−${h.cost} 💰</span><span class="plj-chip" style="color:#ffd23f">+${h.happiness} 😊</span>${upkeep}<span class="plj-chip" style="color:#3ddc84">rent +${h.rentYield}</span></span>
       </button>`;
     }).join("");
+    const owned = this.homes.length;
+    const portfolio = owned
+      ? `<p class="plj-sub" style="color:#9fe0b8">You own ${owned} ${owned === 1 ? "property" : "properties"} · live-in quality ${"★".repeat(this.homeQuality)}${this.rentalIncome > 0 ? ` · rent +${this.rentalIncome} 💰/yr` : ""}. Buy another to rent it out.</p>`
+      : "";
     this.ui.overlay.innerHTML = `
       <div class="plj-card plj-partners-card">
-        <h2>🏠 Buy a home</h2>
-        <p class="plj-sub">A pricier home is bright and happy; a cheap one comes with cracks. You can only buy what you can afford.</p>
+        <h2>🏠 Buy property</h2>
+        <p class="plj-sub">You live in the grandest place you own — that sets your home's look. Pricier homes cost upkeep every year, but a spare place earns rent. Buy only what you can afford.</p>
+        ${portfolio}
         <div class="plj-partners">${cards}</div>
         <button class="plj-btn plj-btn-ghost" id="plj-house-cancel">Not now</button>
       </div>`;
@@ -981,6 +1189,40 @@ export class Game {
     });
     this.ui.overlay.querySelector<HTMLButtonElement>("#plj-house-cancel")!.onclick = () => {
       this.pendingHouseOptId = null;
+      this.mode = "playing";
+      this.clearOverlay();
+    };
+  }
+
+  private showVehicle(): void {
+    const cards = VEHICLES.map((v) => {
+      const owned = this.owned.has("veh_" + v.id);
+      const afford = this.stats.wealth >= v.cost;
+      const usable = !owned && afford;
+      return `
+      <button class="plj-partner${usable ? "" : " locked"}" data-id="${v.id}" ${usable ? "" : "disabled"}>
+        <span class="plj-partner-face">${v.emoji}</span>
+        <span class="plj-partner-name">${v.name}</span>
+        <span class="plj-partner-title">${owned ? "✓ owned" : afford ? "" : "🔒 too pricey"}</span>
+        <span class="plj-partner-blurb">${v.blurb}</span>
+        <span class="plj-chips"><span class="plj-chip" style="color:#ff8a8a">−${v.cost} 💰</span>${effectChips(v.effects)}</span>
+      </button>`;
+    }).join("");
+    this.ui.overlay.innerHTML = `
+      <div class="plj-card plj-partners-card">
+        <h2>🛵 Buy a vehicle</h2>
+        <p class="plj-sub">Your own set of wheels — yours for life. A bicycle keeps you fit; a motorbike thrills; a car is comfort; a sports car is pure status. Pricier rides leave less for everything else.</p>
+        <div class="plj-partners">${cards}</div>
+        <button class="plj-btn plj-btn-ghost" id="plj-veh-cancel">Not now</button>
+      </div>`;
+    this.ui.overlay.classList.add("show");
+    this.ui.overlay.querySelectorAll<HTMLButtonElement>(".plj-partner:not(.locked)").forEach((btn) => {
+      btn.onclick = () => {
+        const v = VEHICLES.find((x) => x.id === btn.dataset.id);
+        if (v) this.buyVehicle(v);
+      };
+    });
+    this.ui.overlay.querySelector<HTMLButtonElement>("#plj-veh-cancel")!.onclick = () => {
       this.mode = "playing";
       this.clearOverlay();
     };

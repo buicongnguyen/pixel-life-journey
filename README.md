@@ -38,10 +38,23 @@ them in balance, and at the very end the game writes the **story of the life you
 - **🧸 Toys** — toy car, doll, smartphone — each a different childhood trade-off.
 - **⚖️ Weight** — a live meter; junk food piles it on, exercise burns it off, and being
   over- or under-weight quietly costs you health.
+- **💰 Money you actually spend** — fun costs money. Parties, holidays, games, eating out,
+  even a scratch card all have a price, and **if you can't afford it, you can't do it** —
+  so earning (jobs, chores, a side hustle) matters. Keep an eye on your 💰 meter.
 - **💼 Occupation** — choose a career (Doctor, Engineer, Teacher, Artist…). Your salary =
   the job × how smart you are, and the best jobs are locked until you're smart enough.
-- **🏠 A house** — buy what you can afford; a grand home is bright, a cheap one is cracked
-  and run-down, and it becomes the backdrop of the rest of your life.
+- **🚲 Wheels** — from your teens, buy a **bicycle** (cheap and healthy), a **motorbike**
+  (a thrill, a little risky), a **car** (comfort) or a **sports car** (pure status). The
+  pricier the ride, the less is left for everything else.
+- **📈 Investing** — buy **stocks** and your pot compounds over the years (your Smarts and
+  money sense grow the returns — but markets can dip). **Learn money management** once for
+  steadier, stronger gains for life.
+- **🏠 Property** — buy from five tiers (studio → city condo → townhouse → family house →
+  luxury villa). You live in the grandest place you own, which sets your home's look — but
+  fancier homes cost **yearly upkeep**. Buy a **second** place and rent it out for steady
+  income, building a little property empire.
+- **🎰 Try your luck** — scratch cards, the lottery, casino nights and bingo: spend a stake
+  for a shot at a windfall.
 - **⏳ Time travel** — rewind to any past age and try a different life.
 - **🎲 Twists of fate** — surprise events pop up as you live: find a wallet (+$100k), hit
   a 🎟️ lottery jackpot (+$500k), inherit a fortune, go viral, adopt a puppy — or cop the
