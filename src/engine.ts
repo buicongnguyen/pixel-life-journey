@@ -11,14 +11,24 @@ import type {
 } from "./types";
 import {
   START_STATS,
+  START_MONEY,
   START_WEIGHT,
+  START_MUSCLE,
+  START_NUTRITION,
+  START_MENTAL,
   STAT_KEYS,
   STAT_META,
   applyEffects,
   clampStat,
+  clampIq,
+  composeHealth,
   crossEffects,
-  lifeExpectancyFromHealth,
-  wealthHappinessBias,
+  ageMaturity,
+  dampIqGain,
+  activityDiscount,
+  lifeExpectancy,
+  moneyHappinessBias,
+  formatMoney,
   weightColor,
   weightHealthDrain,
   weightStatus,
@@ -28,6 +38,7 @@ import { PARTNERS } from "./partners";
 import { OCCUPATIONS } from "./occupations";
 import { HOUSE_TIERS } from "./houses";
 import { VEHICLES } from "./vehicles";
+import { COMMUTES, type CommuteTier } from "./commutes";
 import { EVENTS, type RandomEvent } from "./events";
 import { avatarLook, drawAvatar, drawPerson, drawRoom, drawStation } from "./sprites";
 import { createUI, type UIRefs } from "./ui";
@@ -52,6 +63,7 @@ type Mode =
   | "occupation"
   | "house"
   | "vehicle"
+  | "commute"
   | "timetravel"
   | "event"
   | "transition"
@@ -67,21 +79,35 @@ interface Station {
 interface Snapshot {
   stageIndex: number;
   age: number;
+  gender: Gender;
   stats: Stats;
+  money: number;
   weight: number;
+  muscle: number;
+  nutrition: number;
+  mental: number;
   partnerId: string | null;
   occupationId: string | null;
+  commute: string | null;
   homeQuality: number;
   homeIds: string[];
   hadChild: boolean;
+  familyBond: number;
   spouseDeceased: boolean;
   habitCount: number;
   investments: number;
   moneyWise: boolean;
+  iqCeiling: number;
+  geneBonus: number;
   owned: string[];
   usedEvents: string[];
+  bigFired: boolean;
+  jackpotFired: boolean;
+  petAdopted: boolean;
   eventsLog: string[];
   healthSum: number;
+  happinessSum: number;
+  smartsSum: number;
   healthCount: number;
   historyLen: number;
 }
@@ -102,14 +128,26 @@ export class Game {
   private age = 0;
   private gender: Gender = "male";
   private weight = START_WEIGHT;
+  private money = START_MONEY; // real dollars (bank balance), can grow large
+  // the three pillars of Health (each 0..100) — health is composed from them
+  private muscle = START_MUSCLE; // fitness/strength: gym, sports, exercise
+  private nutrition = START_NUTRITION; // diet quality: good food up, junk down
+  private mental = START_MENTAL; // mental wellbeing: family/friends + happiness
   private occupation: Occupation | null = null;
+  private commute: string | null = null; // chosen commute (career selection stage)
   private homeQuality = 0;
   private homes: HouseTier[] = []; // every property bought; you live in the best one
-  private houseUpkeep = 0; // per-action wealth drain from your home (mortgage/upkeep)
-  private rentalIncome = 0; // per-stage wealth from spare homes rented out
-  private investments = 0; // wealth in the market — compounds over the stages
+  private houseUpkeep = 0; // per-action dollar drain from your home (mortgage/upkeep)
+  private rentalIncome = 0; // per-stage dollars from spare homes rented out
+  private investments = 0; // dollars in the market — compounds over the stages
   private moneyWise = false; // learned money management → better, steadier returns
+  private iqCeiling = 100; // lifelong IQ potential, rolled at birth
+  private geneBonus = 0; // longevity genetics (-5..+5 yrs), rolled at birth
+  private familyBond = 0; // time invested in family — unlocks grandkids later
   private owned = new Set<string>(); // one-off, owned-for-life purchases (vehicles, skills)
+  private bigFired = false; // a "big" windfall already happened (1/life)
+  private jackpotFired = false; // a jackpot already happened (1/life total)
+  private petAdopted = false; // adopted a pet (1/life)
   private spouseDeceased = false;
   private habitCount = 0;
   private eventCooldown = 2;
@@ -122,6 +160,8 @@ export class Game {
   private hadChild = false;
 
   private healthSum = 0;
+  private happinessSum = 0;
+  private smartsSum = 0;
   private healthCount = 0;
 
   private usedOnce = new Set<string>();
@@ -171,15 +211,27 @@ export class Game {
       partner: this.partner?.id ?? null,
       gender: this.gender,
       weight: Math.round(this.weight),
+      health: Math.round(this.stats.health),
+      muscle: Math.round(this.muscle),
+      nutrition: Math.round(this.nutrition),
+      mental: Math.round(this.mental),
       occupation: this.occupation?.id ?? null,
+      commute: this.commute,
+      money: Math.round(this.money),
+      netWorth: Math.round(this.netWorth()),
+      iq: Math.round(this.stats.smarts),
+      iqCeiling: this.iqCeiling,
+      geneBonus: this.geneBonus,
+      familyBond: this.familyBond,
       homeQuality: this.homeQuality,
       homes: this.homes.map((h) => h.id),
-      houseUpkeep: Math.round(this.houseUpkeep * 100) / 100,
+      houseUpkeep: Math.round(this.houseUpkeep),
       rentalIncome: this.rentalIncome,
-      investments: Math.round(this.investments * 10) / 10,
+      investments: Math.round(this.investments),
       moneyWise: this.moneyWise,
       owned: [...this.owned],
       habitCount: this.habitCount,
+      caps: { bigFired: this.bigFired, jackpotFired: this.jackpotFired, petAdopted: this.petAdopted },
       events: [...this.eventsLog],
       timelineLen: this.timeline.filter(Boolean).length,
       historyLen: this.history.length,
@@ -203,8 +255,8 @@ export class Game {
     this.doAction();
   }
 
-  /** Test/debug: pick a partner / occupation / house / vehicle / rewind by id. */
-  debugPick(kind: "partner" | "occupation" | "house" | "vehicle" | "rewind", id: string): void {
+  /** Test/debug: pick a partner / occupation / house / vehicle / commute / rewind by id. */
+  debugPick(kind: "partner" | "occupation" | "house" | "vehicle" | "commute" | "rewind", id: string): void {
     if (kind === "partner") {
       const p = PARTNERS.find((x) => x.id === id);
       if (p) this.pickPartner(p);
@@ -217,6 +269,9 @@ export class Game {
     } else if (kind === "vehicle") {
       const v = VEHICLES.find((x) => x.id === id);
       if (v) this.buyVehicle(v);
+    } else if (kind === "commute") {
+      const c = COMMUTES.find((x) => x.id === id);
+      if (c) this.pickCommute(c);
     } else if (kind === "rewind") {
       this.rewind(Number(id));
     }
@@ -228,14 +283,28 @@ export class Game {
     this.stats = { ...START_STATS };
     this.age = 0;
     this.weight = START_WEIGHT;
+    this.money = START_MONEY;
+    this.muscle = START_MUSCLE;
+    this.nutrition = START_NUTRITION;
+    this.mental = START_MENTAL;
+    this.recomputeHealth();
     this.occupation = null;
+    this.commute = null;
     this.homeQuality = 0;
     this.homes = [];
     this.houseUpkeep = 0;
     this.rentalIncome = 0;
     this.investments = 0;
     this.moneyWise = false;
+    // roll a lifelong IQ potential (mean 100, sd 15, clamped) + a rare gifted bump
+    this.iqCeiling = Math.max(70, Math.min(145, Math.round(gaussian(100, 15))));
+    if (Math.random() < 0.02) this.iqCeiling = 150 + Math.floor(Math.random() * 11); // ~2% gifted (150-160)
+    this.geneBonus = Math.round((Math.random() * 10 - 5) * 10) / 10; // longevity genes -5..+5
+    this.familyBond = 0;
     this.owned = new Set();
+    this.bigFired = false;
+    this.jackpotFired = false;
+    this.petAdopted = false;
     this.spouseDeceased = false;
     this.habitCount = 0;
     this.eventCooldown = 2;
@@ -247,6 +316,8 @@ export class Game {
     this.partner = null;
     this.hadChild = false;
     this.healthSum = 0;
+    this.happinessSum = 0;
+    this.smartsSum = 0;
     this.healthCount = 0;
     this.floats = [];
     this.story = null;
@@ -282,21 +353,35 @@ export class Game {
     return {
       stageIndex: this.stageIndex,
       age: this.age,
+      gender: this.gender,
       stats: { ...this.stats },
+      money: this.money,
       weight: this.weight,
+      muscle: this.muscle,
+      nutrition: this.nutrition,
+      mental: this.mental,
       partnerId: this.partner?.id ?? null,
       occupationId: this.occupation?.id ?? null,
+      commute: this.commute,
       homeQuality: this.homeQuality,
       homeIds: this.homes.map((h) => h.id),
       hadChild: this.hadChild,
+      familyBond: this.familyBond,
       spouseDeceased: this.spouseDeceased,
       habitCount: this.habitCount,
       investments: this.investments,
       moneyWise: this.moneyWise,
+      iqCeiling: this.iqCeiling,
+      geneBonus: this.geneBonus,
       owned: [...this.owned],
+      bigFired: this.bigFired,
+      jackpotFired: this.jackpotFired,
+      petAdopted: this.petAdopted,
       usedEvents: [...this.usedEvents],
       eventsLog: [...this.eventsLog],
       healthSum: this.healthSum,
+      happinessSum: this.happinessSum,
+      smartsSum: this.smartsSum,
       healthCount: this.healthCount,
       historyLen: this.history.length,
     };
@@ -305,7 +390,9 @@ export class Game {
   /** Some NPC options only make sense in context (spouse alive, kids exist…). */
   private optionAvailable(o: LifeOption): boolean {
     if (o.person === "spouse") return !!this.partner && !this.spouseDeceased;
-    if (o.person === "child" || o.person === "grandkid") return this.hadChild;
+    if (o.person === "child") return this.hadChild;
+    // grandkids only appear in old age if you invested time in family earlier
+    if (o.person === "grandkid") return this.hadChild && this.familyBond >= 3;
     // one-off purchases/skills disappear once you own them
     if (o.permanent && this.owned.has(o.id)) return false;
     // the vehicle picker hides once you own every vehicle
@@ -335,8 +422,11 @@ export class Game {
     return Math.max(0.12, Math.min(3, (s.ageEnd - s.ageStart) / 7));
   }
 
+  /** Sample Health, Happiness and IQ each action so longevity rewards STEADY stats. */
   private sampleHealth(): void {
     this.healthSum += this.stats.health;
+    this.happinessSum += this.stats.happiness;
+    this.smartsSum += this.stats.smarts;
     this.healthCount += 1;
   }
 
@@ -344,33 +434,115 @@ export class Game {
     return this.healthCount ? this.healthSum / this.healthCount : this.stats.health;
   }
 
+  /** Life expectancy from the running averages of Health, Happiness and IQ (+ genes). */
   private lifeExp(): number {
-    return lifeExpectancyFromHealth(this.avgHealth());
+    const n = this.healthCount || 1;
+    const le = lifeExpectancy(this.healthSum / n, this.happinessSum / n, this.smartsSum / n) + this.geneBonus;
+    return Math.round(Math.max(45, Math.min(120, le)));
   }
 
-  /** The age your spouse passes away — a woman's husband leaves earlier. */
+  /** Net worth in dollars: cash + the investment pot + property values. */
+  private netWorth(): number {
+    let nw = this.money + this.investments;
+    for (const h of this.homes) nw += h.cost;
+    return nw;
+  }
+
+  /** Income multiplier from IQ — smart people earn more (1 + 0.012*(IQ-100)). */
+  private incomeMul(): number {
+    return Math.max(0.3, 1 + 0.012 * (this.stats.smarts - 100));
+  }
+
+  /** Recompute the derived Health score (0..120) from its three pillars + weight. */
+  private recomputeHealth(): void {
+    this.stats.health = composeHealth(this.muscle, this.nutrition, this.mental, this.weight);
+  }
+
+  /**
+   * Add a health delta to the right pillar — or, for a "split" (general) effect,
+   * nudge ALL three pillars by the full delta so the composed Health score moves
+   * by exactly that delta (composeHealth's pillar weights sum to 1).
+   */
+  private routeHealth(h: number, kind: "muscle" | "nutrition" | "mental" | "split"): void {
+    if (kind === "muscle") this.muscle = clampStat(this.muscle + h);
+    else if (kind === "nutrition") this.nutrition = clampStat(this.nutrition + h);
+    else if (kind === "mental") this.mental = clampStat(this.mental + h);
+    else {
+      this.muscle = clampStat(this.muscle + h);
+      this.nutrition = clampStat(this.nutrition + h);
+      this.mental = clampStat(this.mental + h);
+    }
+  }
+
+  /**
+   * Apply effects, routing any `health` delta into the health pillars (which
+   * pillar depends on the source — exercise→muscle, food→nutrition, people→
+   * mental) and recomposing the overall Health score. All non-health effects
+   * (happiness/fun/IQ) go through the normal clamps.
+   */
+  private applyEff(eff: Partial<Stats>, kind: "muscle" | "nutrition" | "mental" | "split" = "split"): void {
+    const h = eff.health;
+    if (h === undefined) {
+      this.stats = applyEffects(this.stats, eff);
+      return;
+    }
+    const rest = { ...eff };
+    delete rest.health;
+    this.stats = applyEffects(this.stats, rest);
+    this.routeHealth(h, kind);
+    this.recomputeHealth();
+  }
+
+  /** Which health pillar an option's health effect should feed. */
+  private healthKindFor(opt: LifeOption): "muscle" | "nutrition" | "mental" | "split" {
+    if (opt.person || opt.category === "social") return "mental";
+    if (opt.category === "health") return "muscle";
+    if (opt.category === "food") return "nutrition";
+    const t = opt.storyTag;
+    if (t === "sedentary" || t === "gaming" || t === "screen" || t === "toy_phone") return "muscle";
+    if (t === "sleep" || t === "rest" || t === "sleep_baby") return "mental";
+    return "split";
+  }
+
+  /** The age your spouse passes away — men tend to leave earlier, so it depends
+   *  on the SPOUSE's gender (works for any pairing), checked against your age. */
   private spouseDeathAge(): number {
-    return this.gender === "female" ? 70 : 82;
+    return this.partner?.gender === "male" ? 72 : 84;
   }
 
   private passiveTick(): void {
     const s = this.stats;
-    // modern life drifts toward weight gain; being out of range drains health
+    // modern life drifts toward weight gain
     this.weight = clampStat(this.weight + 0.13);
-    s.health = clampStat(s.health - (0.4 + this.age * 0.012) - weightHealthDrain(this.weight));
+    // the three health pillars drift on their own between deliberate choices:
+    //  • muscle atrophies without training (worse with age + out-of-band weight)
+    this.muscle = clampStat(this.muscle - (0.5 + this.age * 0.012) - weightHealthDrain(this.weight));
+    //  • diet reverts toward a mediocre baseline unless you keep eating well
+    this.nutrition = clampStat(this.nutrition + (45 - this.nutrition) * 0.04);
+    //  • mental wellbeing tracks your happiness, and loneliness (no fun) erodes it
+    this.mental = clampStat(this.mental + (s.happiness - this.mental) * 0.05 - (s.fun < 25 ? 0.6 : 0));
     s.fun = clampStat(s.fun - 0.45);
     s.happiness = clampStat(s.happiness - 0.25);
-    s.smarts = clampStat(s.smarts - 0.15);
-    // baseline cost of living + the upkeep on the home you live in (a grander
-    // home quietly taxes everything else you'd like to do with your money)
-    s.wealth = clampStat(s.wealth - 0.2 - this.houseUpkeep);
-    // knock-on effects that wire the meters together (poverty, loneliness, etc.)
-    const fx = crossEffects(s);
-    s.health = clampStat(s.health + fx.health);
+    // IQ drifts down slowly, faster in old age (crystallised knowledge cushions it)
+    const iqDecay = this.age > 80 ? 0.3 : this.age > 70 ? 0.18 : this.age > 55 ? 0.08 : 0.03;
+    s.smarts = clampIq(s.smarts - iqDecay);
+    // cost of living (you become independent at 18) + home upkeep, eased by high
+    // stats — a thriving life is cheaper to sustain. Floored at $0 (no debt).
+    if (this.age >= 18 || this.occupation) {
+      const living = 6000 * activityDiscount(s) + this.houseUpkeep;
+      this.money = Math.max(0, this.money - Math.round(living));
+    } else if (this.houseUpkeep) {
+      this.money = Math.max(0, this.money - Math.round(this.houseUpkeep));
+    }
+    // knock-on effects that wire the meters together (poverty stress, loneliness…)
+    const fx = crossEffects(s, this.money);
+    this.routeHealth(fx.health, "split"); // poverty/comfort touch the body & mind
     s.happiness = clampStat(s.happiness + fx.happiness);
     // being very over/under-weight is also a little dispiriting
     const ws = weightStatus(this.weight);
     if (ws === "obese" || ws === "underweight") s.happiness = clampStat(s.happiness - 0.25);
+    // recompose Health from the (now-updated) pillars + weight
+    this.recomputeHealth();
   }
 
   // --- actions --------------------------------------------------------------
@@ -412,45 +584,54 @@ export class Game {
       return;
     }
 
-    // Affordability gate: anything with a price — a cost, an investment stake, or
-    // a gamble stake — simply can't be done when you're too broke. Nothing
-    // happens, just like real life: not enough money to do that.
-    const price = (opt.cost ?? 0) + (opt.invest ?? 0) + (opt.gamble?.stake ?? 0);
-    if (price > 0 && this.stats.wealth < price) {
+    // High, steady stats discount the dollar cost of an activity (fit/happy/sharp
+    // people get more out of life for less).
+    const discount = activityDiscount(this.stats);
+    const realCost = opt.cost ? Math.round(opt.cost * discount) : 0;
+
+    // Affordability gate: a cost, an investment stake, or a gamble stake simply
+    // can't be paid when you're too broke. Nothing happens — not enough money.
+    const price = realCost + (opt.invest ?? 0) + (opt.gamble?.stake ?? 0);
+    if (price > 0 && this.money < price) {
       this.hint("💸 Not enough money for that.");
       return;
     }
 
     const eff: Partial<Stats> = { ...opt.effects };
-    // salary = base earnings x how smart you are x your occupation's pay
-    if (opt.scalesWithSmarts && eff.wealth && eff.wealth > 0) {
-      const smartFactor = 0.7 + this.stats.smarts / 140;
-      const jobFactor = this.occupation?.salaryMul ?? 1;
-      eff.wealth = Math.round(eff.wealth * smartFactor * jobFactor);
+    // IQ never jumps: damp a single action's brain delta to a couple of points
+    if (eff.smarts !== undefined) eff.smarts = dampIqGain(eff.smarts);
+
+    let moneyDelta = 0;
+    // earnings (work, chores) — scaled by IQ × your occupation's pay when relevant
+    if (opt.earn) {
+      let amt = opt.earn;
+      if (opt.scalesWithSmarts) amt *= this.incomeMul() * (this.occupation?.salaryMul ?? 1);
+      moneyDelta += Math.round(amt);
     }
-    // pay any up-front cost
-    if (opt.cost) eff.wealth = (eff.wealth ?? 0) - opt.cost;
-    // buying stocks moves the stake out of your wallet and into the market pot
+    // pay any up-front (already-discounted) cost
+    if (realCost) moneyDelta -= realCost;
+    // buying stocks moves the stake out of cash and into the market pot
     if (opt.invest) {
       this.investments += opt.invest;
-      eff.wealth = (eff.wealth ?? 0) - opt.invest;
+      moneyDelta -= opt.invest;
+      this.floats.push({ x: this.px, y: this.py - 104, text: "📈", color: "#5db8ff", life: 1.3 });
     }
     // learning money management switches on smarter, steadier returns for life
     if (opt.moneyMgmt) this.moneyWise = true;
 
-    // try-your-luck: roll the gamble and fold the outcome into this action
+    // try-your-luck: roll the gamble and fold the dollar outcome in
     let gambleClause: string | null = null;
     if (opt.gamble) {
       const g = opt.gamble;
-      eff.wealth = (eff.wealth ?? 0) - g.stake;
+      moneyDelta -= g.stake;
       const r = Math.random();
       if (r < g.jackpotChance) {
-        eff.wealth += g.jackpot;
+        moneyDelta += g.jackpot;
         eff.happiness = (eff.happiness ?? 0) + 10;
         gambleClause = g.jackpotStory;
         this.floats.push({ x: this.px, y: this.py - 102, text: "✨ JACKPOT!", color: "#ffd23f", life: 1.7 });
       } else if (r < g.jackpotChance + g.prizeChance) {
-        eff.wealth += g.prize;
+        moneyDelta += g.prize;
         eff.happiness = (eff.happiness ?? 0) + 4;
         gambleClause = g.prizeStory;
       } else {
@@ -460,10 +641,19 @@ export class Game {
     }
     // one-off lifetime purchases/skills are remembered so they don't reappear
     if (opt.permanent) this.owned.add(opt.id);
+    // family time invested unlocks grandkids in old age
+    if (opt.storyTag === "family" || opt.id === "baby") this.familyBond += 1;
 
-    this.stats = applyEffects(this.stats, eff);
+    this.money = Math.max(0, this.money + moneyDelta);
+    this.applyEff(eff, this.healthKindFor(opt));
+    // spending real time with people is a direct boost to mental wellbeing
+    if (opt.person) {
+      this.mental = clampStat(this.mental + 3);
+      this.recomputeHealth();
+    }
     if (gambleClause) this.eventsLog.push(gambleClause);
-    if (opt.invest) this.floats.push({ x: this.px, y: this.py - 88, text: `${opt.invest} 📈`, color: "#5db8ff", life: 1.3 });
+    if (moneyDelta !== 0)
+      this.floats.push({ x: this.px, y: this.py - 88, text: `${moneyDelta > 0 ? "+" : "−"}${formatMoney(Math.abs(moneyDelta))}`, color: moneyDelta > 0 ? "#3ddc84" : "#ff9f6b", life: 1.4 });
 
     // body weight: explicit delta, else derived from what kind of action it is
     const wDelta = opt.weight ?? this.autoWeightDelta(opt);
@@ -484,11 +674,11 @@ export class Game {
     if (opt.habit) {
       this.habitCount += 1;
       if (this.habitCount === 5) {
-        this.stats = applyEffects(this.stats, { health: 15, happiness: 5 });
+        this.applyEff({ health: 15, happiness: 5 }, "split");
         habitBonus = 15;
         this.hint("📗 Your good habits stuck for life! +15 ❤️");
       } else if (this.habitCount > 5) {
-        this.stats = applyEffects(this.stats, { health: 4 });
+        this.applyEff({ health: 4 }, "split");
         habitBonus = 4;
       }
     }
@@ -511,36 +701,42 @@ export class Game {
 
   // --- random "Easter egg" events -------------------------------------------
 
+  /** Whether an event is eligible right now (age, once, and per-life tier caps). */
+  private eventEligible(e: RandomEvent): boolean {
+    if (e.once && this.usedEvents.has(e.id)) return false;
+    if (this.age < (e.minAge ?? 0) || this.age > (e.maxAge ?? 999)) return false;
+    // per-life caps — big/jackpot adults only, pets and jackpots once ever
+    if (e.tier === "big" && (this.bigFired || this.age < 18)) return false;
+    if (e.tier === "jackpot" && (this.jackpotFired || this.age < 18)) return false;
+    if (e.tier === "pet" && this.petAdopted) return false;
+    return true;
+  }
+
   private maybeFireEvent(): void {
     if (this.eventCooldown > 0) {
       this.eventCooldown -= 1;
       return;
     }
     if (Math.random() > 0.16) return; // ~1 in 6 actions once off cooldown
-    const pool = EVENTS.filter(
-      (e) =>
-        !(e.once && this.usedEvents.has(e.id)) &&
-        this.age >= (e.minAge ?? 0) &&
-        this.age <= (e.maxAge ?? 999)
-    );
-    if (pool.length === 0) return;
-    const total = pool.reduce((sum, e) => sum + e.weight, 0);
-    let r = Math.random() * total;
-    let chosen = pool[0];
-    for (const e of pool) {
-      r -= e.weight;
-      if (r <= 0) {
-        chosen = e;
-        break;
-      }
+    let pool = EVENTS.filter((e) => this.eventEligible(e));
+    // Pity guarantee: by the senior years, if no jackpot has ever fired, give a
+    // long, lucky-starved life a real (but still ~once) shot at its one big moment.
+    if (!this.jackpotFired && this.stageIndex >= STAGES.length - 3 && Math.random() < 0.25) {
+      const jackpots = EVENTS.filter((e) => e.tier === "jackpot" && this.eventEligible(e));
+      if (jackpots.length) return this.fireEvent(weightedPick(jackpots));
     }
-    this.fireEvent(chosen);
+    if (pool.length === 0) return;
+    this.fireEvent(weightedPick(pool));
   }
 
   private fireEvent(e: RandomEvent): void {
     if (e.once) this.usedEvents.add(e.id);
+    if (e.tier === "big") this.bigFired = true;
+    if (e.tier === "jackpot") this.jackpotFired = true;
+    if (e.tier === "pet") this.petAdopted = true;
     this.eventCooldown = 4;
-    this.stats = applyEffects(this.stats, e.effects);
+    this.applyEff(e.effects, e.tier === "pet" ? "mental" : "split");
+    if (e.money) this.money = Math.max(0, this.money + e.money);
     this.eventsLog.push(e.storyClause);
     this.mode = "event";
     this.showEvent(e);
@@ -572,7 +768,9 @@ export class Game {
     for (const k of STAT_KEYS) {
       const d = eff[k];
       if (!d) continue;
-      push(`${d > 0 ? "+" : ""}${d} ${STAT_META[k].icon}`, d > 0 ? STAT_META[k].color : "#ff7a7a");
+      const r = Math.round(d);
+      if (r === 0) continue;
+      push(`${r > 0 ? "+" : ""}${r} ${STAT_META[k].icon}`, r > 0 ? STAT_META[k].color : "#ff7a7a");
     }
     if (Math.abs(wDelta) >= 1) {
       // gaining weight is the "bad" direction, so colour it like a penalty
@@ -580,50 +778,89 @@ export class Game {
     }
   }
 
+  /** A short "look back over the life so far" shown on each stage transition. */
+  private lifeRecap(): string[] {
+    const trail = STAGES.slice(0, this.stageIndex + 1).map((s) => s.emoji).join(" → ");
+    const s = this.stats;
+    let vibe: string;
+    if (s.health >= 70 && s.happiness >= 70) vibe = "Healthy and happy so far — a good life.";
+    else if (s.health < 35) vibe = "Your health has been fragile — take care of it.";
+    else if (s.happiness < 35) vibe = "Happiness has been hard to come by lately.";
+    else if (s.health >= 70) vibe = "You're keeping in good health.";
+    else if (s.happiness >= 70) vibe = "You've found plenty of joy along the way.";
+    else vibe = "Life has had its ups and downs.";
+    return [`📖 Your journey so far: ${trail}`, vibe];
+  }
+
+  /**
+   * Ease IQ toward the age-appropriate average (your potential × age-maturity),
+   * within a +/-25 band and a small per-chapter cap — so IQ grows with age in
+   * childhood, plateaus, and gently declines, and never jumps.
+   */
+  private driftIq(): void {
+    const target = this.iqCeiling * ageMaturity(this.age);
+    const cap = this.age < 16 ? 5 : this.age < 55 ? 1.2 : 1.6;
+    const drift = Math.max(-cap, Math.min(cap, (target - this.stats.smarts) * 0.3));
+    // Only cap the UPPER side (you can't run far above your age peers). The lower
+    // side is governed by the smooth drift + the global floor — never snapped up,
+    // so a gifted child's IQ still rises gradually rather than jumping to the band.
+    const banded = Math.min(target + 25, this.stats.smarts + drift);
+    this.stats.smarts = clampIq(banded);
+  }
+
   private advanceStage(): void {
     if (this.mode !== "playing") return; // never advance twice in one frame
     const cur = STAGES[this.stageIndex];
-    const lines: string[] = [`You lived through your ${cur.name} years.`];
+    const lines: string[] = [`You lived through your ${cur.name} years.`, ...this.lifeRecap()];
 
-    // partner modifiers shape every chapter after the wedding
-    if (this.partner) this.stats = applyEffects(this.stats, this.partner.modifiers);
-
-    // education pays off when you start your career
-    if (this.stageIndex + 1 === CAREER_INDEX) {
-      const bonus = Math.round(this.stats.smarts * 0.2);
-      this.stats.wealth = clampStat(this.stats.wealth + bonus);
-      lines.push(`Your studying paid off — +${bonus} 💰 to your starting salary.`);
+    // partner modifiers (and their income/cost) shape every chapter after the wedding
+    if (this.partner) {
+      this.applyEff(this.partner.modifiers, "split");
+      if (this.partner.moneyMod) this.money = Math.max(0, this.money + this.partner.moneyMod);
     }
 
-    // your investment pot compounds between chapters — Smarts and money sense
-    // grow the returns, but markets can dip too. Gains are cashed into wealth.
+    // IQ drifts toward the age-appropriate average each chapter (so it tracks the
+    // age curve smoothly and stays within a band of your potential — never snaps)
+    this.driftIq();
+
+    // education pays off when you start your career — a smart start means savings
+    if (this.stageIndex + 1 === CAREER_INDEX) {
+      const bonus = Math.round(Math.max(0, this.stats.smarts - 100) * 1500);
+      if (bonus > 0) {
+        this.money += bonus;
+        lines.push(`Your studying paid off — a ${formatMoney(bonus)} head start on your savings.`);
+      }
+    }
+
+    // your investment pot compounds between chapters — IQ and money sense grow the
+    // returns, but markets can dip too. Realised gains are cashed into your account.
     if (this.investments > 0) {
       const dipChance = this.moneyWise ? 0.1 : 0.18;
       if (Math.random() < dipChance) {
         const loss = 0.08 + Math.random() * 0.16;
         this.investments = Math.max(0, this.investments * (1 - loss));
-        lines.push(`📉 Markets dipped — your investments slid to ~${Math.round(this.investments)} 💰. You hold on.`);
+        lines.push(`📉 Markets dipped — your investments slid to ~${formatMoney(this.investments)}. You hold on.`);
       } else {
-        const rate = 0.12 + this.stats.smarts * 0.0014 + (this.moneyWise ? 0.06 : 0);
-        this.investments *= 1 + rate;
+        const rate = 0.07 + 0.0014 * (this.stats.smarts - 100) + (this.moneyWise ? 0.04 : 0);
+        this.investments *= 1 + Math.max(0, rate);
         const realised = Math.round(this.investments * 0.22);
         this.investments = Math.max(0, this.investments - realised);
         if (realised > 0) {
-          this.stats.wealth = clampStat(this.stats.wealth + realised);
-          lines.push(`📈 Investments grew — you cashed out +${realised} 💰 (pot ~${Math.round(this.investments)} 💰).`);
+          this.money += realised;
+          lines.push(`📈 Investments grew — you cashed out ${formatMoney(realised)} (pot ~${formatMoney(this.investments)}).`);
         }
       }
-      this.investments = Math.min(this.investments, 300); // keep the pot sane
+      this.investments = Math.min(this.investments, 50000000); // keep the pot sane
     }
 
     // spare properties pay rent every chapter
     if (this.rentalIncome > 0) {
-      this.stats.wealth = clampStat(this.stats.wealth + this.rentalIncome);
-      lines.push(`🏘️ Rental income: +${this.rentalIncome} 💰 from your ${this.homes.length - 1 > 1 ? "properties" : "spare property"}.`);
+      this.money += this.rentalIncome;
+      lines.push(`🏘️ Rental income: ${formatMoney(this.rentalIncome)} from your ${this.homes.length - 1 > 1 ? "properties" : "spare property"}.`);
     }
 
-    // wealth nudges happiness with diminishing returns (Kahneman/Killingsworth)
-    this.stats.happiness = clampStat(this.stats.happiness + wealthHappinessBias(this.stats.wealth));
+    // money nudges happiness with diminishing returns (Kahneman/Killingsworth)
+    this.stats.happiness = clampStat(this.stats.happiness + moneyHappinessBias(this.money));
     this.sampleHealth();
 
     const next = this.stageIndex + 1;
@@ -635,8 +872,8 @@ export class Game {
       const upcomingAge = Math.max(this.age, STAGES[next].ageStart);
       if (upcomingAge >= this.spouseDeathAge()) {
         this.spouseDeceased = true;
-        this.stats = applyEffects(this.stats, { happiness: -16, health: -4 });
-        const who = this.gender === "female" ? "husband" : "wife";
+        this.applyEff({ happiness: -16, health: -4 }, "mental");
+        const who = this.partner.gender === "male" ? "husband" : "wife";
         lines.push(`💔 Your ${who} ${this.partner.name} passed away. You grieve, but carry on.`);
       }
     }
@@ -674,6 +911,8 @@ export class Game {
       vehicles: VEHICLES.filter((v) => this.owned.has("veh_" + v.id)).map((v) => `a ${v.name.toLowerCase()}`),
       moneyWise: this.moneyWise,
       propertiesOwned: this.homes.length,
+      money: Math.round(this.money),
+      netWorth: Math.round(this.netWorth()),
     });
     this.mode = "ending";
     this.showEnding();
@@ -681,7 +920,7 @@ export class Game {
 
   private pickPartner(p: Partner): void {
     this.partner = p;
-    this.stats = applyEffects(this.stats, { happiness: 10, health: 2 });
+    this.applyEff({ happiness: 10, health: 2 }, "mental");
     this.history.push({
       stageId: "marriage",
       stageName: "Marriage & Baby",
@@ -697,7 +936,7 @@ export class Game {
 
   private pickOccupation(o: Occupation): void {
     this.occupation = o;
-    if (o.perks) this.stats = applyEffects(this.stats, o.perks);
+    if (o.perks) this.applyEff(o.perks, "split");
     this.history.push({
       stageId: "career",
       stageName: "Career",
@@ -706,18 +945,25 @@ export class Game {
       ageAt: this.age,
     });
     this.timeline[this.stageIndex] = this.snapshot();
-    this.mode = "playing";
-    this.clearOverlay();
     this.hint(`${o.emoji} You became a ${o.name}!`);
+    // a second career-start fork: how will you commute to work?
+    if (!this.commute) {
+      this.mode = "commute";
+      this.showCommute();
+    } else {
+      this.mode = "playing";
+      this.clearOverlay();
+    }
   }
 
   private buyHouse(h: HouseTier): void {
-    if (this.stats.wealth < h.cost) {
+    if (this.money < h.cost) {
       this.hint("You can't afford that one yet.");
       return;
     }
     const owningAlready = this.homes.length > 0;
-    this.stats = applyEffects(this.stats, { wealth: -h.cost, happiness: h.happiness });
+    this.money -= h.cost;
+    this.applyEff({ happiness: h.happiness });
     this.homes.push(h);
     this.recomputeHomes();
     this.pendingHouseOptId = null;
@@ -771,12 +1017,13 @@ export class Game {
       this.hint("You already own that.");
       return;
     }
-    if (this.stats.wealth < v.cost) {
+    if (this.money < v.cost) {
       this.hint("You can't afford that one yet.");
       return;
     }
     this.owned.add(key);
-    this.stats = applyEffects(this.stats, { ...v.effects, wealth: (v.effects.wealth ?? 0) - v.cost });
+    this.money -= v.cost;
+    this.applyEff(v.effects, "split");
     this.age += this.stageStep();
     this.passiveTick();
     this.sampleHealth();
@@ -787,32 +1034,69 @@ export class Game {
       storyTag: v.storyTag,
       ageAt: this.age,
     });
-    this.spawnFloats({ ...v.effects, wealth: (v.effects.wealth ?? 0) - v.cost });
+    this.spawnFloats(v.effects);
+    this.floats.push({ x: this.px, y: this.py - 88, text: `−${formatMoney(v.cost)}`, color: "#ff9f6b", life: 1.4 });
     this.mode = "playing";
     this.clearOverlay();
     this.hint(`${v.emoji} You bought a ${v.name.toLowerCase()}!`);
     if (this.stats.health <= 0) return this.finishLife("health", Math.round(this.age));
   }
 
+  /** A special selection at the start of your career: how do you get to work? */
+  private pickCommute(c: CommuteTier): void {
+    if (this.netWorth() < c.minNet) {
+      this.hint("You can't afford that commute yet.");
+      return;
+    }
+    this.commute = c.id;
+    if (c.cost) this.money = Math.max(0, this.money - c.cost);
+    this.applyEff(c.effects, "muscle");
+    this.history.push({
+      stageId: "career",
+      stageName: "Career",
+      optionId: "commute_" + c.id,
+      storyTag: c.storyTag,
+      ageAt: this.age,
+    });
+    this.timeline[this.stageIndex] = this.snapshot();
+    this.mode = "playing";
+    this.clearOverlay();
+    this.hint(`${c.emoji} ${c.name} — that's how you'll get to work.`);
+  }
+
   /** Time travel: jump back to the start of a previously-visited stage. */
   private rewind(stageIndex: number): void {
     const snap = this.timeline[stageIndex];
     if (!snap) return;
+    this.gender = snap.gender;
     this.stats = { ...snap.stats };
+    this.money = snap.money;
     this.weight = snap.weight;
+    this.muscle = snap.muscle;
+    this.nutrition = snap.nutrition;
+    this.mental = snap.mental;
     this.age = snap.age;
+    this.commute = snap.commute;
     this.homes = snap.homeIds.map((id) => HOUSE_TIERS.find((h) => h.id === id)).filter(Boolean) as HouseTier[];
     this.recomputeHomes();
     this.hadChild = snap.hadChild;
+    this.familyBond = snap.familyBond;
     this.spouseDeceased = snap.spouseDeceased;
     this.habitCount = snap.habitCount;
     this.investments = snap.investments;
     this.moneyWise = snap.moneyWise;
+    this.iqCeiling = snap.iqCeiling;
+    this.geneBonus = snap.geneBonus;
     this.owned = new Set(snap.owned);
+    this.bigFired = snap.bigFired;
+    this.jackpotFired = snap.jackpotFired;
+    this.petAdopted = snap.petAdopted;
     this.usedEvents = new Set(snap.usedEvents);
     this.eventsLog = [...snap.eventsLog];
     this.eventCooldown = 2;
     this.healthSum = snap.healthSum;
+    this.happinessSum = snap.happinessSum;
+    this.smartsSum = snap.smartsSum;
     this.healthCount = snap.healthCount;
     this.partner = snap.partnerId ? PARTNERS.find((p) => p.id === snap.partnerId) ?? null : null;
     this.occupation = snap.occupationId
@@ -939,6 +1223,7 @@ export class Game {
       this.mode === "occupation" ||
       this.mode === "house" ||
       this.mode === "vehicle" ||
+      this.mode === "commute" ||
       this.mode === "timetravel" ||
       this.mode === "event";
     if (inRoom && this.stageIndex < STAGES.length) {
@@ -990,15 +1275,31 @@ export class Game {
     for (const k of STAT_KEYS) {
       const v = Math.round(this.stats[k]);
       const bar = this.ui.bars[k];
-      bar.fill.style.width = `${this.stats[k]}%`;
+      // IQ runs 40..160 and Health 0..120 (can exceed 100), so scale those bars
+      bar.fill.style.width =
+        k === "smarts" ? `${((this.stats[k] - 40) / 120) * 100}%`
+        : k === "health" ? `${Math.min(100, (this.stats[k] / 120) * 100)}%`
+        : `${this.stats[k]}%`;
       bar.val.textContent = String(v);
-      bar.fill.style.opacity = v < 20 ? "0.6" : "1";
+      bar.fill.style.opacity = (k === "smarts" ? v < 70 : v < 20) ? "0.6" : "1";
+    }
+    // the three pillars that compose Health
+    const pillars: [keyof typeof this.ui.subBars, number][] = [
+      ["muscle", this.muscle], ["nutrition", this.nutrition], ["mental", this.mental],
+    ];
+    for (const [key, val] of pillars) {
+      const sb = this.ui.subBars[key];
+      sb.fill.style.width = `${val}%`;
+      sb.val.textContent = String(Math.round(val));
     }
     // weight meter: colour reflects healthy / over / under, not "more is better"
     const wb = this.ui.weightBar;
     wb.fill.style.width = `${this.weight}%`;
     wb.fill.style.background = weightColor(this.weight);
     wb.val.textContent = String(Math.round(this.weight));
+
+    // money is a real dollar figure, not a bar
+    this.ui.moneyLabel.textContent = `💰 ${formatMoney(this.money)}`;
 
     const s = STAGES[Math.min(this.stageIndex, STAGES.length - 1)];
     const occ = this.occupation ? ` · ${this.occupation.emoji} ${this.occupation.name}` : "";
@@ -1024,14 +1325,19 @@ export class Game {
     const opt = this.stations[this.focusIndex].opt;
     const mk = (text: string, color: string) => `<span class="plj-chip" style="color:${color}">${text}</span>`;
     const extra: string[] = [];
-    if (opt.cost) extra.push(mk(`−${opt.cost} 💰`, "#ff8a8a"));
-    if (opt.invest) extra.push(mk(`invest ${opt.invest} 📈`, "#5db8ff"));
-    if (opt.gamble) {
-      extra.push(mk(`stake ${opt.gamble.stake} 💰`, "#ff8a8a"));
-      extra.push(mk(`win up to ${opt.gamble.jackpot} 💰`, "#3ddc84"));
+    if (opt.earn) {
+      const est = opt.earn * (opt.scalesWithSmarts ? this.incomeMul() * (this.occupation?.salaryMul ?? 1) : 1);
+      extra.push(mk(`+${formatMoney(est)}`, "#3ddc84"));
     }
-    const price = (opt.cost ?? 0) + (opt.invest ?? 0) + (opt.gamble?.stake ?? 0);
-    const broke = price > 0 && this.stats.wealth < price;
+    const realCost = opt.cost ? Math.round(opt.cost * activityDiscount(this.stats)) : 0;
+    if (realCost) extra.push(mk(`−${formatMoney(realCost)}`, "#ff8a8a"));
+    if (opt.invest) extra.push(mk(`invest ${formatMoney(opt.invest)} 📈`, "#5db8ff"));
+    if (opt.gamble) {
+      extra.push(mk(`stake ${formatMoney(opt.gamble.stake)}`, "#ff8a8a"));
+      extra.push(mk(`win up to ${formatMoney(opt.gamble.jackpot)}`, "#3ddc84"));
+    }
+    const price = realCost + (opt.invest ?? 0) + (opt.gamble?.stake ?? 0);
+    const broke = price > 0 && this.money < price;
     const press = broke
       ? `<b class="plj-press" style="background:#5a2a33;color:#ffc4c4">💸 can't afford</b>`
       : `<b class="plj-press">SPACE</b>`;
@@ -1100,25 +1406,43 @@ export class Game {
     this.ui.overlay.classList.add("show");
   }
 
+  /** Why a partner is out of your league right now (or null if you qualify). */
+  private partnerLockReason(p: Partner): string | null {
+    const r = p.requires;
+    if (!r) return null;
+    if (r.minIq && this.stats.smarts < r.minIq) return `needs 🧠 ${r.minIq}`;
+    if (r.minMoney && this.netWorth() < r.minMoney) return `needs 💰 ${formatMoney(r.minMoney)}`;
+    if (r.minHealth && this.stats.health < r.minHealth) return `wants you fit (❤️ ${r.minHealth})`;
+    if (r.maxWeight && this.weight > r.maxWeight) return `wants you fit (⚖️ ≤ ${r.maxWeight})`;
+    return null;
+  }
+
   private showPartner(): void {
-    const cards = PARTNERS.map(
-      (p) => `
-      <button class="plj-partner" data-id="${p.id}">
+    const mk = (text: string, color: string) => `<span class="plj-chip" style="color:${color}">${text}</span>`;
+    const cards = PARTNERS.map((p) => {
+      const reason = this.partnerLockReason(p);
+      const locked = !!reason;
+      const money = p.moneyMod
+        ? mk(`${p.moneyMod > 0 ? "+" : "−"}${formatMoney(Math.abs(p.moneyMod))}/yr`, p.moneyMod > 0 ? "#3ddc84" : "#ff8a8a")
+        : "";
+      const chips = locked ? mk(`🔒 ${reason}`, "#ff8a8a") : effectChips(p.modifiers) + money;
+      return `
+      <button class="plj-partner${locked ? " locked" : ""}" data-id="${p.id}" ${locked ? "disabled" : ""}>
         <span class="plj-partner-face">${p.emoji}</span>
         <span class="plj-partner-name">${p.name}</span>
         <span class="plj-partner-title">${p.title}</span>
         <span class="plj-partner-blurb">${p.blurb}</span>
-        <span class="plj-chips">${effectChips(p.modifiers)}</span>
-      </button>`
-    ).join("");
+        <span class="plj-chips">${chips}</span>
+      </button>`;
+    }).join("");
     this.ui.overlay.innerHTML = `
       <div class="plj-card plj-partners-card">
         <h2>💍 Time to settle down</h2>
-        <p class="plj-sub">Choose who to share the rest of your life with. They'll shape every chapter to come.</p>
+        <p class="plj-sub">Choose who to share your life with — but the best matches expect you to have made something of yourself (smarts, money, fitness). They shape every chapter to come.</p>
         <div class="plj-partners">${cards}</div>
       </div>`;
     this.ui.overlay.classList.add("show");
-    this.ui.overlay.querySelectorAll<HTMLButtonElement>(".plj-partner").forEach((btn) => {
+    this.ui.overlay.querySelectorAll<HTMLButtonElement>(".plj-partner:not(.locked)").forEach((btn) => {
       btn.onclick = () => {
         const p = PARTNERS.find((x) => x.id === btn.dataset.id);
         if (p) this.pickPartner(p);
@@ -1126,9 +1450,36 @@ export class Game {
     });
   }
 
+  private showCommute(): void {
+    const cards = COMMUTES.map((c) => {
+      const afford = this.netWorth() >= c.minNet;
+      return `
+      <button class="plj-partner${afford ? "" : " locked"}" data-id="${c.id}" ${afford ? "" : "disabled"}>
+        <span class="plj-partner-face">${c.emoji}</span>
+        <span class="plj-partner-name">${c.name}</span>
+        <span class="plj-partner-title">${c.cost ? "−" + formatMoney(c.cost) : "free"}</span>
+        <span class="plj-partner-blurb">${c.blurb}</span>
+        <span class="plj-chips">${afford ? effectChips(c.effects) : `<span class="plj-chip" style="color:#ff8a8a">🔒 needs 💰 ${formatMoney(c.minNet)}</span>`}</span>
+      </button>`;
+    }).join("");
+    this.ui.overlay.innerHTML = `
+      <div class="plj-card plj-partners-card">
+        <h2>🚦 Getting to work</h2>
+        <p class="plj-sub">How will you commute? You can always walk, but the comfier options open up as your net worth grows.</p>
+        <div class="plj-partners">${cards}</div>
+      </div>`;
+    this.ui.overlay.classList.add("show");
+    this.ui.overlay.querySelectorAll<HTMLButtonElement>(".plj-partner:not(.locked)").forEach((btn) => {
+      btn.onclick = () => {
+        const c = COMMUTES.find((x) => x.id === btn.dataset.id);
+        if (c) this.pickCommute(c);
+      };
+    });
+  }
+
   private showOccupation(): void {
     const cards = OCCUPATIONS.map((o) => {
-      const locked = this.stats.smarts < o.minSmarts;
+      const locked = this.stats.smarts < o.minIq;
       const pay = o.salaryMul >= 1.4 ? "💰💰💰" : o.salaryMul >= 1.0 ? "💰💰" : "💰";
       return `
       <button class="plj-partner${locked ? " locked" : ""}" data-id="${o.id}" ${locked ? "disabled" : ""}>
@@ -1136,13 +1487,13 @@ export class Game {
         <span class="plj-partner-name">${o.name}</span>
         <span class="plj-partner-title">Pay ${pay}</span>
         <span class="plj-partner-blurb">${o.blurb}</span>
-        <span class="plj-chips">${locked ? `<span class="plj-chip" style="color:#ff8a8a">🔒 needs 🧠 ${o.minSmarts}</span>` : effectChips(o.perks ?? {})}</span>
+        <span class="plj-chips">${locked ? `<span class="plj-chip" style="color:#ff8a8a">🔒 needs 🧠 ${o.minIq}</span>` : effectChips(o.perks ?? {})}</span>
       </button>`;
     }).join("");
     this.ui.overlay.innerHTML = `
       <div class="plj-card plj-partners-card">
         <h2>💼 Choose your career</h2>
-        <p class="plj-sub">Your salary = the job × how smart you are. Study more to unlock better-paying jobs.</p>
+        <p class="plj-sub">Your salary = the job × your IQ. A higher IQ unlocks (and is paid more by) the best jobs.</p>
         <div class="plj-partners">${cards}</div>
       </div>`;
     this.ui.overlay.classList.add("show");
@@ -1157,20 +1508,20 @@ export class Game {
   private showHouse(): void {
     const stars = (q: number) => "★".repeat(q) + "☆".repeat(5 - q);
     const cards = HOUSE_TIERS.map((h) => {
-      const afford = this.stats.wealth >= h.cost;
-      const upkeep = h.upkeep > 0 ? `<span class="plj-chip" style="color:#ffb4b4">−${h.upkeep}/yr upkeep</span>` : "";
+      const afford = this.money >= h.cost;
+      const upkeep = h.upkeep > 0 ? `<span class="plj-chip" style="color:#ffb4b4">−${formatMoney(h.upkeep)}/yr</span>` : "";
       return `
       <button class="plj-partner${afford ? "" : " locked"}" data-id="${h.id}" ${afford ? "" : "disabled"}>
         <span class="plj-partner-face">${h.emoji}</span>
         <span class="plj-partner-name">${h.name}</span>
-        <span class="plj-partner-title">${stars(h.quality)}</span>
+        <span class="plj-partner-title">${stars(h.quality)} · ${formatMoney(h.cost)}</span>
         <span class="plj-partner-blurb">${h.blurb}</span>
-        <span class="plj-chips"><span class="plj-chip" style="color:#ff8a8a">−${h.cost} 💰</span><span class="plj-chip" style="color:#ffd23f">+${h.happiness} 😊</span>${upkeep}<span class="plj-chip" style="color:#3ddc84">rent +${h.rentYield}</span></span>
+        <span class="plj-chips"><span class="plj-chip" style="color:#ffd23f">+${h.happiness} 😊</span>${upkeep}<span class="plj-chip" style="color:#3ddc84">rent ${formatMoney(h.rentYield)}</span></span>
       </button>`;
     }).join("");
     const owned = this.homes.length;
     const portfolio = owned
-      ? `<p class="plj-sub" style="color:#9fe0b8">You own ${owned} ${owned === 1 ? "property" : "properties"} · live-in quality ${"★".repeat(this.homeQuality)}${this.rentalIncome > 0 ? ` · rent +${this.rentalIncome} 💰/yr` : ""}. Buy another to rent it out.</p>`
+      ? `<p class="plj-sub" style="color:#9fe0b8">You own ${owned} ${owned === 1 ? "property" : "properties"} · live-in quality ${"★".repeat(this.homeQuality)}${this.rentalIncome > 0 ? ` · rent ${formatMoney(this.rentalIncome)}/yr` : ""}. Buy another to rent it out.</p>`
       : "";
     this.ui.overlay.innerHTML = `
       <div class="plj-card plj-partners-card">
@@ -1197,15 +1548,15 @@ export class Game {
   private showVehicle(): void {
     const cards = VEHICLES.map((v) => {
       const owned = this.owned.has("veh_" + v.id);
-      const afford = this.stats.wealth >= v.cost;
+      const afford = this.money >= v.cost;
       const usable = !owned && afford;
       return `
       <button class="plj-partner${usable ? "" : " locked"}" data-id="${v.id}" ${usable ? "" : "disabled"}>
         <span class="plj-partner-face">${v.emoji}</span>
         <span class="plj-partner-name">${v.name}</span>
-        <span class="plj-partner-title">${owned ? "✓ owned" : afford ? "" : "🔒 too pricey"}</span>
+        <span class="plj-partner-title">${owned ? "✓ owned" : formatMoney(v.cost)}</span>
         <span class="plj-partner-blurb">${v.blurb}</span>
-        <span class="plj-chips"><span class="plj-chip" style="color:#ff8a8a">−${v.cost} 💰</span>${effectChips(v.effects)}</span>
+        <span class="plj-chips"><span class="plj-chip" style="color:#ff8a8a">−${formatMoney(v.cost)}</span>${effectChips(v.effects)}</span>
       </button>`;
     }).join("");
     this.ui.overlay.innerHTML = `
@@ -1270,7 +1621,7 @@ export class Game {
       <div class="plj-card plj-event ${good ? "plj-event-good" : "plj-event-bad"}">
         <div class="plj-event-emoji">${e.emoji}</div>
         <h2>${e.title}</h2>
-        ${e.cash ? `<p class="plj-event-cash">${e.cash}</p>` : ""}
+        ${e.money ? `<p class="plj-event-cash">${e.money > 0 ? "+ " : "− "}${formatMoney(Math.abs(e.money))}</p>` : ""}
         <p class="plj-event-desc">${e.desc}</p>
         <div class="plj-chips" style="justify-content:center">${effectChips(e.effects)}</div>
         <button class="plj-btn" id="plj-event-ok">${good ? "Lucky me! ✨" : "Ugh… 😅"}</button>
@@ -1286,7 +1637,7 @@ export class Game {
     const story = this.story!;
     const summary = STAT_KEYS.map(
       (k) => `<span class="plj-end-stat"><b style="color:${STAT_META[k].color}">${STAT_META[k].icon}</b> ${Math.round(this.stats[k])}</span>`
-    ).join("");
+    ).join("") + `<span class="plj-end-stat"><b style="color:#3ddc84">💰</b> ${formatMoney(this.netWorth())}</span>`;
     this.ui.overlay.innerHTML = `
       <div class="plj-card plj-end">
         <h2>${story.title}</h2>
@@ -1348,7 +1699,27 @@ function effectChips(effects: Partial<Stats>): string {
       ([k, v]) =>
         `<span class="plj-chip" style="color:${v > 0 ? STAT_META[k].color : "#ff8a8a"}">${
           v > 0 ? "+" : ""
-        }${v} ${STAT_META[k].icon}</span>`
+        }${Math.round(v)} ${STAT_META[k].icon}</span>`
     )
     .join("");
+}
+
+/** A normally-distributed sample (Box–Muller), used to roll IQ potential at birth. */
+function gaussian(mean: number, sd: number): number {
+  let u = 0;
+  let v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return mean + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+/** Pick one event from a pool by its `weight`. */
+function weightedPick(pool: RandomEvent[]): RandomEvent {
+  const total = pool.reduce((sum, e) => sum + e.weight, 0);
+  let r = Math.random() * total;
+  for (const e of pool) {
+    r -= e.weight;
+    if (r <= 0) return e;
+  }
+  return pool[pool.length - 1];
 }

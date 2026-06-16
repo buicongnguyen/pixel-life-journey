@@ -1,10 +1,10 @@
 import type { Occupation } from "./types";
 
 // ---------------------------------------------------------------------------
-// Careers chosen at the start of the Career stage. Your salary = the job's
-// multiplier × how Smart you are, so the better jobs both PAY more and REQUIRE
-// more Smarts (built up by studying in school and upskilling at work). Jobs you
-// aren't smart enough for yet are shown locked.
+// Careers chosen at the start of the Career stage. Your salary = a base pay ×
+// the job's multiplier × how high your IQ is, so the better jobs both PAY more
+// and REQUIRE a higher IQ (built up by studying in school and upskilling at
+// work). Jobs your IQ isn't high enough for yet are shown locked.
 // ---------------------------------------------------------------------------
 
 export const OCCUPATIONS: Occupation[] = [
@@ -12,20 +12,20 @@ export const OCCUPATIONS: Occupation[] = [
     id: "doctor",
     name: "Doctor",
     emoji: "🩺",
-    blurb: "Save lives. Top pay — but you need top grades.",
+    blurb: "Save lives. Top pay — but you need a top-tier IQ.",
     salaryMul: 1.8,
-    minSmarts: 68,
-    perks: { wealth: 4, happiness: 3 },
+    minIq: 132,
+    perks: { happiness: 3 },
     storyTag: "job_doctor",
   },
   {
     id: "lawyer",
     name: "Lawyer",
     emoji: "⚖️",
-    blurb: "Argue for a living. Prestigious and well paid.",
+    blurb: "Argue for a living. Prestigious and very well paid.",
     salaryMul: 1.7,
-    minSmarts: 62,
-    perks: { wealth: 4 },
+    minIq: 126,
+    perks: { happiness: 1 },
     storyTag: "job_lawyer",
   },
   {
@@ -34,8 +34,8 @@ export const OCCUPATIONS: Occupation[] = [
     emoji: "💻",
     blurb: "Build and code. Strong, steady, modern money.",
     salaryMul: 1.55,
-    minSmarts: 52,
-    perks: { smarts: 3 },
+    minIq: 118,
+    perks: { smarts: 2 },
     storyTag: "job_engineer",
   },
   {
@@ -44,7 +44,7 @@ export const OCCUPATIONS: Occupation[] = [
     emoji: "🚀",
     blurb: "Start your own thing. Big upside, big hustle.",
     salaryMul: 1.5,
-    minSmarts: 44,
+    minIq: 110,
     perks: { fun: 2, happiness: 2 },
     storyTag: "job_entrepreneur",
   },
@@ -54,7 +54,7 @@ export const OCCUPATIONS: Occupation[] = [
     emoji: "👩‍🏫",
     blurb: "Shape young minds. Modest pay, deep meaning.",
     salaryMul: 1.05,
-    minSmarts: 36,
+    minIq: 102,
     perks: { happiness: 6, smarts: 2 },
     storyTag: "job_teacher",
   },
@@ -64,7 +64,7 @@ export const OCCUPATIONS: Occupation[] = [
     emoji: "👨‍🍳",
     blurb: "Feed people joy. Long shifts, warm heart.",
     salaryMul: 1.05,
-    minSmarts: 24,
+    minIq: 94,
     perks: { happiness: 5 },
     storyTag: "job_chef",
   },
@@ -74,7 +74,7 @@ export const OCCUPATIONS: Occupation[] = [
     emoji: "🔧",
     blurb: "Work with your hands. Honest, active, reliable.",
     salaryMul: 1.15,
-    minSmarts: 14,
+    minIq: 86,
     perks: { health: 5 },
     storyTag: "job_trades",
   },
@@ -84,7 +84,7 @@ export const OCCUPATIONS: Occupation[] = [
     emoji: "🎨",
     blurb: "Follow your passion. Money's thin, life is rich.",
     salaryMul: 0.8,
-    minSmarts: 0,
+    minIq: 0,
     perks: { fun: 6, happiness: 4 },
     storyTag: "job_artist",
   },

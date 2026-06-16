@@ -72,9 +72,20 @@ body {
 .plj-le {
   color: var(--muted);
 }
+.plj-hud-right {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.plj-money {
+  font-weight: 800;
+  font-size: 14px;
+  color: #3ddc84;
+  white-space: nowrap;
+}
 .plj-bars {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 6px;
 }
 .plj-bar {
@@ -105,6 +116,46 @@ body {
   font-size: 11px;
   color: var(--muted);
   font-weight: 700;
+}
+/* the three Health pillars — a smaller sub-row under the main meters */
+.plj-subbars {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px dashed var(--line);
+}
+.plj-subbar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.plj-subbar-icon {
+  font-size: 11px;
+  line-height: 1;
+}
+.plj-subbar-track {
+  flex: 1;
+  height: 6px;
+  background: #160f2c;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.plj-subbar-fill {
+  height: 100%;
+  width: 50%;
+  border-radius: 4px;
+  transition: width 0.25s ease;
+  opacity: 0.85;
+}
+.plj-subbar-val {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 700;
+  min-width: 16px;
+  text-align: right;
 }
 
 /* ---- stage / canvas ----------------------------------------------------- */

@@ -14,39 +14,59 @@ them in balance, and at the very end the game writes the **story of the life you
 1. **Pick boy or girl** at birth, then walk around each room with the **arrow keys / WASD**
    (or the on-screen D-pad on a phone).
 2. Step onto a glowing **choice** and press **Space** to do it. Each choice changes your
-   meters — ❤️ Health, 😊 Happiness, 💰 Wealth, 🎉 Fun, 🧠 Smarts, ⚖️ Weight — and ages you.
-3. When you're old enough, the **door on the right glows** — walk into it to grow up
-   into the next stage of life.
+   meters — ❤️ Health, 😊 Happiness, 🎉 Fun, 🧠 **IQ** (40–160, starts at 60), ⚖️ Weight —
+   and your **💰 money** (a real dollar balance, top-right) — and ages you.
+   > ❤️ **Health isn't one thing** — it's a **composite** of three pillars shown beneath
+   > your meters: **💪 Muscle** (gym, sports, exercise), **🥗 Nutrition** (what you eat) and
+   > **🧘 Mental** (time with family & friends, and your happiness). Keep all three strong
+   > and your Health can climb **past 100** (up to 120); let one collapse and it drags the
+   > whole thing down.
+3. When you're old enough, the **door on the right glows** — walk into it to grow up into
+   the next stage of life — and read a short **recap of your journey so far**.
 4. **Keep your balance.** Live on junk food and your weight climbs and your health
    collapses. Chase money with endless overtime and your fun, happiness and health pay for
-   it. Study hard to unlock better-paid careers, buy the nicest home you can afford, marry
+   it. Study hard to grow your **IQ** (slowly — it tracks your age, you can't cram your way
+   to genius) and unlock better-paid careers, buy the nicest home you can afford, marry
    well, stay active.
 5. Changed your mind? Tap the **⏳ time-travel pill** (or press `T`) to jump back to any
    age and re-live from there.
 6. At the end, read your **life story** — then live another.
 
-> The little `~78y` next to your age is your **life expectancy**. It rises and falls with
-> how well you look after your health and weight.
+> The little `~85y` next to your age is your **life expectancy**. Keep your **health,
+> happiness and IQ steadily high** across your whole life and it climbs — a well-rounded,
+> healthy life can reach **120**.
 
 ## ✨ What you control
 
 - **👦/👧 Gender** at birth (changes your character and story).
 - **👨‍👩‍👧 The people in your life** — bond with the characters in each room: **Mum, Dad,
   Grandma, Grandpa** as a baby; **study pals, best friends and a first crush** at school;
-  a **coworker and gym buddy** at work; your **spouse, kids, grandkids and old friends**
-  later on. Connection is one of the biggest drivers of a long, happy life.
+  a **coworker and gym buddy** at work; your **spouse, kids and old friends** later on. And
+  **grandkids** in old age — but only if you spent time with your family along the way.
+  Connection is one of the biggest drivers of a long, happy life.
+- **💍 Who you marry** — at the marriage stage you pick one of eight partners, and the best
+  matches are **gated by the life you've led**: the **Doctor** wants a smart, well-off
+  partner; the **Athlete** wants someone fit; let yourself go on junk food and the best
+  options lock. The free-spirited **Artist** loves you no matter what — so there's always
+  someone — but study, money and fitness widen your choices.
+- **🧠 IQ** — a real intelligence stat (40–160, mean 100), starting at **60** as a baby.
+  It grows with age and study but **never jumps** — you can't cram your way to genius, and
+  it gently fades in old age. A high IQ unlocks (and is paid more by) the top careers.
 - **🧸 Toys** — toy car, doll, smartphone — each a different childhood trade-off.
 - **⚖️ Weight** — a live meter; junk food piles it on, exercise burns it off, and being
-  over- or under-weight quietly costs you health.
-- **💰 Money you actually spend** — fun costs money. Parties, holidays, games, eating out,
-  even a scratch card all have a price, and **if you can't afford it, you can't do it** —
-  so earning (jobs, chores, a side hustle) matters. Keep an eye on your 💰 meter.
-- **💼 Occupation** — choose a career (Doctor, Engineer, Teacher, Artist…). Your salary =
-  the job × how smart you are, and the best jobs are locked until you're smart enough.
+  over- or under-weight quietly costs you health (and your dating options).
+- **💰 Real money** — your **money is a real dollar balance** (not a bar), and it can grow
+  large. Fun costs money — parties, holidays, games, eating out, even a scratch card — and
+  **if you can't afford it, you can't do it**, so earning (jobs, chores, a side hustle)
+  matters. High health, happiness and IQ even **discount** what activities cost you.
+- **💼 Occupation & commute** — choose a career (Doctor, Engineer, Teacher, Artist…); your
+  salary = the job × your IQ, and the best jobs need a high IQ. Then pick **how you commute
+  to work** — walk for free, or unlock the bus, a car or a chauffeured luxury car as your
+  net worth grows.
 - **🚲 Wheels** — from your teens, buy a **bicycle** (cheap and healthy), a **motorbike**
   (a thrill, a little risky), a **car** (comfort) or a **sports car** (pure status). The
   pricier the ride, the less is left for everything else.
-- **📈 Investing** — buy **stocks** and your pot compounds over the years (your Smarts and
+- **📈 Investing** — buy **stocks** and your pot compounds over the years (your IQ and
   money sense grow the returns — but markets can dip). **Learn money management** once for
   steadier, stronger gains for life.
 - **🏠 Property** — buy from five tiers (studio → city condo → townhouse → family house →
@@ -56,9 +76,10 @@ them in balance, and at the very end the game writes the **story of the life you
 - **🎰 Try your luck** — scratch cards, the lottery, casino nights and bingo: spend a stake
   for a shot at a windfall.
 - **⏳ Time travel** — rewind to any past age and try a different life.
-- **🎲 Twists of fate** — surprise events pop up as you live: find a wallet (+$100k), hit
-  a 🎟️ lottery jackpot (+$500k), inherit a fortune, go viral, adopt a puppy — or cop the
-  odd scam or medical bill. They're woven into your life story.
+- **🎲 Twists of fate** — surprise events pop up as you live: small lucky windfalls happen
+  often (found cash, a tax refund, a gift, busking), while the **big jackpots** — a
+  🎟️ lottery win, a crypto bet, an inheritance — and **adopting a pet** are deliberately
+  rare: **once in a whole life, at most**. They're woven into your life story.
 - **📗 The good-habits book** — a special item that rewards repetition: read it **5+ times**
   across your life and the habit sticks, giving you lasting health.
 

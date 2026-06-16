@@ -4,8 +4,12 @@
 // (see stages.ts), so adding content = adding an entry, no engine changes.
 // ---------------------------------------------------------------------------
 
-/** The five life indices shown in the HUD. All are 0..100 meters. */
-export type StatKey = "health" | "happiness" | "wealth" | "fun" | "smarts";
+/**
+ * The four life meters. Health, Happiness and Fun are 0..100; `smarts` is the
+ * IQ meter on a 40..160 scale (see stats.ts). MONEY is NOT here — it's a real
+ * dollar amount tracked separately by the engine.
+ */
+export type StatKey = "health" | "happiness" | "fun" | "smarts";
 
 export type Stats = Record<StatKey, number>;
 
@@ -50,17 +54,17 @@ export type SceneKind =
   | "home"
   | "sunset";
 
-/** A "try your luck" choice: spend a stake for a chance at a payout. */
+/** A "try your luck" choice: spend a stake for a chance at a payout (all in $). */
 export interface GambleSpec {
-  /** Wealth spent to play. Gated — you can't play if you can't afford the stake. */
+  /** Dollars spent to play. Gated — you can't play if you can't afford the stake. */
   stake: number;
   /** Chance (0..1) of the big win. */
   jackpotChance: number;
-  /** Wealth gained on the jackpot. */
+  /** Dollars won on the jackpot. */
   jackpot: number;
   /** Chance (0..1) of a small win (checked after the jackpot). */
   prizeChance: number;
-  /** Wealth gained on a small win. */
+  /** Dollars won on a small win. */
   prize: number;
   /** Story clause when you hit the jackpot. */
   jackpotStory: string;
@@ -81,13 +85,15 @@ export interface LifeOption {
   /** One-line description shown in the focus panel. */
   desc: string;
   category: OptionCategory;
-  /** Stat deltas applied when chosen. */
+  /** Stat deltas applied when chosen (health/happiness/fun/IQ). */
   effects: Partial<Stats>;
+  /** Money EARNED in dollars (work, chores…). Scaled by IQ when scalesWithSmarts. */
+  earn?: number;
   /** Years this action costs (defaults to the stage's per-action age step). */
   ageCost?: number;
   /** If true, can only be chosen once per stage (e.g. "Have a baby"). */
   once?: boolean;
-  /** If true, the positive wealth gain is scaled by Smarts (study pays off). */
+  /** If true, the earnings are scaled by IQ × occupation pay (study pays off). */
   scalesWithSmarts?: boolean;
   /** Explicit body-weight delta (else it's derived from category — see engine). */
   weight?: number;
@@ -98,9 +104,10 @@ export interface LifeOption {
   /** A repeatable "good habit" — reading it 5+ times across life pays off in health. */
   habit?: boolean;
   /**
-   * Wealth this choice costs. The action is GATED: if you can't afford the cost,
-   * nothing happens ("not enough money"). Otherwise the cost is spent on top of
-   * the option's effects. Use for things you pay to do (games, parties, travel…).
+   * Money (dollars) this choice costs. The action is GATED: if you can't afford
+   * it, nothing happens ("not enough money"). The cost is reduced a little when
+   * your Health/Happiness/IQ are high (see activityDiscount). Use for things you
+   * pay to do (games, parties, travel…).
    */
   cost?: number;
   /**
@@ -109,7 +116,7 @@ export interface LifeOption {
    */
   permanent?: boolean;
   /**
-   * Choosing this moves this much wealth into your investment pot (gated by
+   * Choosing this moves this many dollars into your investment pot (gated by
    * affordability like `cost`). The pot compounds over the stages that follow.
    */
   invest?: number;
@@ -150,15 +157,33 @@ export interface Stage {
   atHome?: boolean;
 }
 
+/** What you must bring to the table to win a given partner. */
+export interface PartnerReq {
+  /** Minimum IQ. */
+  minIq?: number;
+  /** Minimum money (dollars) — a high-status partner expects you to be doing well. */
+  minMoney?: number;
+  /** Maximum body weight — an athletic/attractive partner wants a fit match. */
+  maxWeight?: number;
+  /** Minimum health/fitness. */
+  minHealth?: number;
+}
+
 export interface Partner {
   id: string;
   name: string;
   /** Short archetype, e.g. "the Doctor". */
   title: string;
+  /** The partner's own gender (men tend to pass earlier — see spouse mortality). */
+  gender: Gender;
   emoji: string;
   blurb: string;
   /** Applied passively at every stage transition after the wedding. */
   modifiers: Partial<Stats>;
+  /** Money (dollars) this partner adds (or costs) each stage after the wedding. */
+  moneyMod?: number;
+  /** Stat requirements to be ABLE to choose this partner (else shown locked). */
+  requires?: PartnerReq;
   storyTag: string;
 }
 
@@ -179,10 +204,10 @@ export interface Occupation {
   name: string;
   emoji: string;
   blurb: string;
-  /** Multiplier on the wealth earned from work-style options. */
+  /** Multiplier on the money earned from work-style options. */
   salaryMul: number;
-  /** Smarts required to unlock this career. */
-  minSmarts: number;
+  /** IQ required to unlock this career. */
+  minIq: number;
   /** Small one-off boost applied when you take the job. */
   perks?: Partial<Stats>;
   storyTag: string;

@@ -1,5 +1,5 @@
 import type { Gender, HistoryEntry, Occupation, Partner, Stats } from "./types";
-import { verdict, weightStatus } from "./stats";
+import { verdict, iqVerdict, moneyVerdict, formatMoney, weightStatus } from "./stats";
 
 // ---------------------------------------------------------------------------
 // The life-story writer. At the end of the game we turn the recorded choices
@@ -32,6 +32,10 @@ export interface StoryInput {
   moneyWise: boolean;
   /** How many properties were owned in total (>1 = a little landlord). */
   propertiesOwned: number;
+  /** Cash in the bank at the end (dollars). */
+  money: number;
+  /** Total net worth at the end (cash + investments + property). */
+  netWorth: number;
 }
 
 export interface LifeStory {
@@ -89,6 +93,10 @@ const TAG_CLAUSES: Record<string, string> = {
   chores: "earned your own pocket money with odd jobs",
   invest_stocks: "put your money to work in the markets",
   moneywise: "got smart about money",
+  commute_walk: "walked or cycled to work",
+  commute_transit: "rode the bus and train to work",
+  commute_car: "drove yourself to work",
+  commute_luxury: "were chauffeured to work in style",
   gamble: "couldn't resist a flutter now and then",
   veh_bike: "pedalled everywhere on your bicycle",
   veh_moto: "felt the wind on your motorbike",
@@ -171,7 +179,7 @@ function joinList(items: string[]): string {
 export function generateStory(input: StoryInput): LifeStory {
   const { history, finalStats, partner, deathAge, cause, hadChild } = input;
   const { gender, weight, occupation, homeQuality, widowed, events, habitMaster } = input;
-  const { vehicles, moneyWise, propertiesOwned } = input;
+  const { vehicles, moneyWise, propertiesOwned, netWorth } = input;
   const paragraphs: string[] = [];
 
   // Opening
@@ -236,8 +244,8 @@ export function generateStory(input: StoryInput): LifeStory {
     );
   }
 
-  // The verdict on the meters (incl. fitness)
-  paragraphs.push(verdictParagraph(finalStats, weight));
+  // The verdict on the meters (incl. fitness + lifetime net worth)
+  paragraphs.push(verdictParagraph(finalStats, weight, netWorth));
 
   // A reflective look at what you leave behind
   paragraphs.push(legacyParagraph(finalStats, hadChild));
@@ -246,9 +254,9 @@ export function generateStory(input: StoryInput): LifeStory {
   paragraphs.push(endingParagraph(cause, deathAge, finalStats));
 
   return {
-    title: titleFor(finalStats, cause),
+    title: titleFor(finalStats, netWorth, cause),
     paragraphs,
-    epitaph: epitaphFor(finalStats, cause),
+    epitaph: epitaphFor(finalStats, netWorth, cause),
   };
 }
 
@@ -300,16 +308,16 @@ function partnerLine(p: Partner): string {
   return (key && map[key]) ?? "They were by your side through it all.";
 }
 
-function verdictParagraph(s: Stats, weight: number): string {
+function verdictParagraph(s: Stats, weight: number, netWorth: number): string {
   const parts: string[] = [];
-  const wv = verdict(s.wealth);
+  const wv = moneyVerdict(netWorth);
   const hv = verdict(s.happiness);
-  const sv = verdict(s.smarts);
+  const sv = iqVerdict(s.smarts);
   parts.push(
     wv === "great"
-      ? "You ended your days wealthy and secure"
+      ? `You ended your days wealthy and secure (worth ${formatMoney(netWorth)})`
       : wv === "good"
-      ? "You were comfortable, never wanting for much"
+      ? `You were comfortable, never wanting for much (worth ${formatMoney(netWorth)})`
       : wv === "ok"
       ? "Money was sometimes tight, but you got by"
       : "You were never rich — life was a financial struggle"
@@ -352,8 +360,8 @@ function legacyParagraph(s: Stats, hadChild: boolean): string {
       ? "you leave behind children — and the warm, noisy family you built around them"
       : "you leave behind no children of your own, but a long trail of people whose lives you brushed against"
   );
-  if (s.smarts >= 70) bits.push("a sharp, curious mind that never stopped learning");
-  else if (s.smarts < 35) bits.push("few books read, but plenty of living done");
+  if (s.smarts >= 120) bits.push("a sharp, brilliant mind that never stopped learning");
+  else if (s.smarts < 85) bits.push("few books read, but plenty of living done");
   if (s.happiness >= 70) bits.push("and far more good days than bad");
   else if (s.happiness < 35) bits.push("and a heart that knew its share of hard days");
   else bits.push("and a fair mix of laughter and tears");
@@ -371,20 +379,32 @@ function endingParagraph(cause: CauseOfEnd, age: number, s: Stats): string {
   return `At ${a}, your long journey came gently to a close. You looked back on a full life, with no regrets worth keeping.`;
 }
 
-function titleFor(s: Stats, cause: CauseOfEnd): string {
+/** A money/IQ-aware 0..100 score per facet, so the title/epitaph weigh them fairly. */
+function facetScores(s: Stats, netWorth: number): Record<string, number> {
+  const moneyScore = { poor: 18, ok: 50, good: 76, great: 94 }[moneyVerdict(netWorth)];
+  return {
+    health: s.health,
+    happiness: s.happiness,
+    fun: s.fun,
+    smarts: Math.max(0, Math.min(100, (s.smarts - 40) / 1.2)), // IQ 40..160 → 0..100
+    wealth: moneyScore,
+  };
+}
+
+function titleFor(s: Stats, netWorth: number, cause: CauseOfEnd): string {
   if (cause === "health") return "A Life Cut Short";
-  const avg = (s.health + s.happiness + s.wealth + s.fun + s.smarts) / 5;
+  const f = facetScores(s, netWorth);
+  const avg = (f.health + f.happiness + f.fun + f.smarts + f.wealth) / 5;
   if (avg >= 75) return "A Life Truly Well Lived";
   if (avg >= 55) return "A Good, Full Life";
   if (avg >= 35) return "An Ordinary Life, Quietly Lived";
   return "A Hard Road Travelled";
 }
 
-function epitaphFor(s: Stats, cause: CauseOfEnd): string {
+function epitaphFor(s: Stats, netWorth: number, cause: CauseOfEnd): string {
   if (cause === "health") return "Gone too soon — health is the wealth we forget to keep.";
-  const top = (Object.entries(s) as [keyof Stats, number][]).sort(
-    (a, b) => b[1] - a[1]
-  )[0][0];
+  const f = facetScores(s, netWorth);
+  const top = (Object.entries(f) as [string, number][]).sort((a, b) => b[1] - a[1])[0][0];
   const map: Record<string, string> = {
     health: "Lived strong, every single day.",
     happiness: "Loved much, and was much loved.",

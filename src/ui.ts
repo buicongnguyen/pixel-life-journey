@@ -15,8 +15,10 @@ export interface UIRefs {
   stageLabel: HTMLElement;
   ageLabel: HTMLElement;
   leLabel: HTMLElement;
+  moneyLabel: HTMLElement;
   bars: Record<StatKey, { fill: HTMLElement; val: HTMLElement }>;
   weightBar: { fill: HTMLElement; val: HTMLElement };
+  subBars: Record<"muscle" | "nutrition" | "mental", { fill: HTMLElement; val: HTMLElement }>;
   warn: HTMLElement;
   focusPanel: HTMLElement;
   hint: HTMLElement;
@@ -44,11 +46,14 @@ export function createUI(mount: HTMLElement): UIRefs {
   const hud = el("div", "plj-hud");
   const topRow = el("div", "plj-hud-top");
   const stageLabel = el("span", "plj-stage", "👶 Newborn");
+  const rightWrap = el("span", "plj-hud-right");
+  const moneyLabel = el("span", "plj-money", "💰 $0");
   const ageWrap = el("span", "plj-age");
   const ageLabel = el("span", "plj-age-num", "0");
   const leLabel = el("span", "plj-le", "");
   ageWrap.append(document.createTextNode("Age "), ageLabel, leLabel);
-  topRow.append(stageLabel, ageWrap);
+  rightWrap.append(moneyLabel, ageWrap);
+  topRow.append(stageLabel, rightWrap);
 
   const barsRow = el("div", "plj-bars");
   const bars = {} as Record<StatKey, { fill: HTMLElement; val: HTMLElement }>;
@@ -77,7 +82,29 @@ export function createUI(mount: HTMLElement): UIRefs {
   wItem.append(wIcon, wTrack, wVal);
   barsRow.append(wItem);
   const weightBar = { fill: wFill, val: wVal };
-  hud.append(topRow, barsRow);
+
+  // the three pillars that COMPOSE Health, shown as a smaller sub-row
+  const subRow = el("div", "plj-subbars");
+  const subBars = {} as Record<"muscle" | "nutrition" | "mental", { fill: HTMLElement; val: HTMLElement }>;
+  const subMeta: [keyof typeof subBars, string, string, string][] = [
+    ["muscle", "💪", "Muscle", "#ff8a5d"],
+    ["nutrition", "🥗", "Nutrition", "#7ed957"],
+    ["mental", "🧘", "Mental", "#b08cff"],
+  ];
+  for (const [key, icon, label, color] of subMeta) {
+    const item = el("div", "plj-subbar");
+    item.title = label + " — a pillar of your Health";
+    const ic = el("span", "plj-subbar-icon", icon);
+    const track = el("div", "plj-subbar-track");
+    const fill = el("div", "plj-subbar-fill");
+    fill.style.background = color;
+    const val = el("span", "plj-subbar-val", "0");
+    track.append(fill);
+    item.append(ic, track, val);
+    subRow.append(item);
+    subBars[key] = { fill, val };
+  }
+  hud.append(topRow, barsRow, subRow);
 
   // --- canvas ---------------------------------------------------------------
   const stage = el("div", "plj-stage-wrap");
@@ -129,8 +156,10 @@ export function createUI(mount: HTMLElement): UIRefs {
     stageLabel,
     ageLabel,
     leLabel,
+    moneyLabel,
     bars,
     weightBar,
+    subBars,
     warn,
     focusPanel,
     hint,

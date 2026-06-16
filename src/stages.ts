@@ -37,13 +37,13 @@ const themes: Record<string, RoomTheme> = {
 
 const VEHICLE_STATION: LifeOption = { id: "vehicle", label: "Buy a vehicle", icon: "🛵", desc: "Buy a bicycle, motorbike or car — your own set of wheels. Pick what you can afford.", category: "special", effects: {}, opensVehiclePicker: true, storyTag: "vehicle" };
 const PROPERTY_STATION: LifeOption = { id: "property", label: "Buy property", icon: "🏠", desc: "Buy a home to live in — or a second place to rent out for income. Grander homes cost more to keep.", category: "special", effects: {}, opensHousePicker: true, storyTag: "home" };
-const STOCKS_STATION: LifeOption = { id: "stocks", label: "Buy stocks", icon: "📈", desc: "Move money into the market. It compounds over the years — Smarts and money sense grow the returns.", category: "wealth", effects: {}, invest: 8, storyTag: "invest_stocks" };
-const MONEY_SKILLS: LifeOption = { id: "moneyskills", label: "Money skills", icon: "📊", desc: "Learn to budget and invest well — steadier, stronger investment returns for the rest of your life.", category: "smarts", effects: { smarts: 5, happiness: 1 }, cost: 2, permanent: true, moneyMgmt: true, storyTag: "moneywise" };
-const SCRATCHCARD: LifeOption = { id: "scratch", label: "Scratch card", icon: "🎫", desc: "A cheap flutter. Most cards lose, some win small — a lucky few hit the top prize.", category: "fun", effects: {}, gamble: { stake: 2, jackpotChance: 0.05, jackpot: 20, prizeChance: 0.34, prize: 4, jackpotStory: "scratched a card and hit the top prize", prizeStory: "won a little on a scratch card", bustStory: "fed a few coins to losing scratch cards" }, storyTag: "gamble" };
-const LOTTERY: LifeOption = { id: "lotto", label: "Lottery", icon: "🎰", desc: "Play the lottery — a tiny shot at a life-changing jackpot.", category: "fun", effects: {}, gamble: { stake: 3, jackpotChance: 0.02, jackpot: 48, prizeChance: 0.16, prize: 7, jackpotStory: "won big on the lottery", prizeStory: "matched a few numbers for a tidy lottery win", bustStory: "gave the lottery more than it ever gave back" }, storyTag: "gamble" };
-const CASINO: LifeOption = { id: "casino", label: "Casino night", icon: "🃏", desc: "A night at the casino — bigger stakes, bigger swings.", category: "fun", effects: { fun: 3 }, gamble: { stake: 8, jackpotChance: 0.06, jackpot: 28, prizeChance: 0.32, prize: 12, jackpotStory: "had a legendary night at the casino", prizeStory: "walked out of the casino a winner", bustStory: "left the casino lighter than they walked in" }, storyTag: "gamble" };
-const BINGO: LifeOption = { id: "bingo", label: "Bingo hall", icon: "🎱", desc: "An afternoon at the bingo hall — a flutter and a good laugh with friends.", category: "fun", effects: { happiness: 3, fun: 2 }, gamble: { stake: 2, jackpotChance: 0.05, jackpot: 16, prizeChance: 0.34, prize: 4, jackpotStory: "shouted 'BINGO!' for the full-house jackpot", prizeStory: "won a line at bingo", bustStory: "had a happy (if losing) day at the bingo hall" }, storyTag: "gamble" };
-const CHORES: LifeOption = { id: "chores", label: "Do chores", icon: "🧹", desc: "Help around the house and street for pocket money.", category: "wealth", effects: { wealth: 4, happiness: -1 }, storyTag: "chores" };
+const STOCKS_STATION: LifeOption = { id: "stocks", label: "Buy stocks", icon: "📈", desc: "Move $25k into the market. It compounds over the years — your IQ and money sense grow the returns.", category: "wealth", effects: {}, invest: 25000, storyTag: "invest_stocks" };
+const MONEY_SKILLS: LifeOption = { id: "moneyskills", label: "Money skills", icon: "📊", desc: "Take a money course ($4k) — steadier, stronger investment returns for the rest of your life.", category: "smarts", effects: { smarts: 5, happiness: 1 }, cost: 4000, permanent: true, moneyMgmt: true, storyTag: "moneywise" };
+const SCRATCHCARD: LifeOption = { id: "scratch", label: "Scratch card", icon: "🎫", desc: "A $10 flutter. Most cards lose, some win small — a lucky few hit the top prize.", category: "fun", effects: {}, gamble: { stake: 10, jackpotChance: 0.05, jackpot: 40000, prizeChance: 0.34, prize: 200, jackpotStory: "scratched a card and hit the top prize", prizeStory: "won a little on a scratch card", bustStory: "fed a few coins to losing scratch cards" }, storyTag: "gamble" };
+const LOTTERY: LifeOption = { id: "lotto", label: "Lottery", icon: "🎰", desc: "Play the lottery ($15) — a tiny shot at a life-changing jackpot.", category: "fun", effects: {}, gamble: { stake: 15, jackpotChance: 0.02, jackpot: 480000, prizeChance: 0.16, prize: 500, jackpotStory: "won big on the lottery", prizeStory: "matched a few numbers for a tidy lottery win", bustStory: "gave the lottery more than it ever gave back" }, storyTag: "gamble" };
+const CASINO: LifeOption = { id: "casino", label: "Casino night", icon: "🃏", desc: "A night at the casino ($8k stake) — bigger stakes, bigger swings.", category: "fun", effects: { fun: 3 }, gamble: { stake: 8000, jackpotChance: 0.06, jackpot: 280000, prizeChance: 0.32, prize: 20000, jackpotStory: "had a legendary night at the casino", prizeStory: "walked out of the casino a winner", bustStory: "left the casino lighter than they walked in" }, storyTag: "gamble" };
+const BINGO: LifeOption = { id: "bingo", label: "Bingo hall", icon: "🎱", desc: "An afternoon at the bingo hall ($1k in) — a flutter and a good laugh with friends.", category: "fun", effects: { happiness: 3, fun: 2 }, gamble: { stake: 1000, jackpotChance: 0.05, jackpot: 30000, prizeChance: 0.34, prize: 3000, jackpotStory: "shouted 'BINGO!' for the full-house jackpot", prizeStory: "won a line at bingo", bustStory: "had a happy (if losing) day at the bingo hall" }, storyTag: "gamble" };
+const CHORES: LifeOption = { id: "chores", label: "Do chores", icon: "🧹", desc: "Help around the house and street for pocket money.", category: "wealth", effects: { happiness: -1 }, earn: 600, storyTag: "chores" };
 
 export const STAGES: Stage[] = [
   {
@@ -120,11 +120,11 @@ export const STAGES: Stage[] = [
     options: [
       { id: "study", label: "Study", icon: "📖", desc: "Do your homework. Smarts open doors later.", category: "smarts", effects: { smarts: 9, fun: -2 }, storyTag: "study" },
       { id: "sports", label: "Sports", icon: "⚽", desc: "Join a sports team — healthy and social.", category: "health", effects: { health: 8, fun: 3 }, storyTag: "sports" },
-      { id: "games", label: "Video games", icon: "🎮", desc: "Marathon gaming. Fun, but skips homework and exercise. Games cost a little pocket money.", category: "fun", effects: { fun: 8, health: -3, smarts: -2 }, cost: 2, storyTag: "gaming" },
+      { id: "games", label: "Video games", icon: "🎮", desc: "Marathon gaming. Fun, but skips homework and exercise. Games cost a little pocket money.", category: "fun", effects: { fun: 8, health: -3, smarts: -2 }, cost: 600, storyTag: "gaming" },
       { id: "music", label: "Music class", icon: "🎹", desc: "Learn an instrument — clever and joyful.", category: "smarts", effects: { smarts: 4, happiness: 5 }, storyTag: "music" },
       { id: "lunch", label: "Healthy lunch", icon: "🥗", desc: "A balanced lunch keeps you sharp and well.", category: "food", effects: { health: 7 }, storyTag: "veggies" },
-      { id: "junk", label: "Fast food", icon: "🍔", desc: "Burgers and fries. Yummy but unhealthy — and they cost money.", category: "food", effects: { fun: 6, health: -6 }, cost: 1, storyTag: "junkfood" },
-      { id: "phone", label: "Smartphone", icon: "📱", desc: "Your first phone. Fun and connected — but it (and the bills) cost money.", category: "fun", effects: { fun: 7, happiness: 3, health: -2, smarts: -2 }, cost: 3, storyTag: "toy_phone" },
+      { id: "junk", label: "Fast food", icon: "🍔", desc: "Burgers and fries. Yummy but unhealthy — and they cost money.", category: "food", effects: { fun: 6, health: -6 }, cost: 300, storyTag: "junkfood" },
+      { id: "phone", label: "Smartphone", icon: "📱", desc: "Your first phone. Fun and connected — but it (and the bills) cost money.", category: "fun", effects: { fun: 7, happiness: 3, health: -2, smarts: -2 }, cost: 1200, storyTag: "toy_phone" },
       { id: "studyFriend", label: "Study pal", icon: "🧑‍🎓", person: "studyFriend", desc: "Do homework with a friend — you both learn more.", category: "smarts", effects: { smarts: 5, happiness: 4 }, storyTag: "friends" },
       { id: "playmate", label: "Friends", icon: "🧒", person: "playmate", desc: "Tag and hopscotch at recess with your gang.", category: "social", effects: { happiness: 7, health: 2, fun: 3 }, storyTag: "friends" },
       { ...CHORES, desc: "Help around the house for pocket money — your first taste of earning." },
@@ -143,11 +143,11 @@ export const STAGES: Stage[] = [
     options: [
       { id: "study", label: "Study hard", icon: "📚", desc: "Hit the books. Builds real smarts for high school.", category: "smarts", effects: { smarts: 9, fun: -3 }, storyTag: "study" },
       { id: "sports", label: "Sports", icon: "🏀", desc: "Team sports — fit body, happy mind.", category: "health", effects: { health: 8, happiness: 3 }, storyTag: "sports" },
-      { id: "gaming", label: "All-night gaming", icon: "🎮", desc: "Game till dawn. Huge fun, wrecks your sleep — and the games cost money.", category: "fun", effects: { fun: 9, health: -5 }, cost: 2, storyTag: "gaming" },
+      { id: "gaming", label: "All-night gaming", icon: "🎮", desc: "Game till dawn. Huge fun, wrecks your sleep — and the games cost money.", category: "fun", effects: { fun: 9, health: -5 }, cost: 600, storyTag: "gaming" },
       { id: "band", label: "Band / Music", icon: "🎸", desc: "Play in a band. Cool, creative and happy.", category: "fun", effects: { happiness: 6, fun: 4 }, storyTag: "music" },
       { id: "sleep", label: "Good sleep", icon: "😴", desc: "Sleep early. The best fuel for body and brain.", category: "rest", effects: { health: 7, smarts: 2 }, storyTag: "sleep" },
-      { id: "soda", label: "Snacks & soda", icon: "🥤", desc: "Chips and fizzy drinks. Fun but sugary, and they cost a bit.", category: "food", effects: { fun: 6, health: -6 }, cost: 1, storyTag: "junkfood" },
-      { id: "phone", label: "Smartphone", icon: "📱", desc: "Glued to your phone. Social and fun, but distracting — and the bills add up.", category: "fun", effects: { fun: 8, happiness: 2, health: -3, smarts: -3 }, cost: 3, storyTag: "toy_phone" },
+      { id: "soda", label: "Snacks & soda", icon: "🥤", desc: "Chips and fizzy drinks. Fun but sugary, and they cost a bit.", category: "food", effects: { fun: 6, health: -6 }, cost: 200, storyTag: "junkfood" },
+      { id: "phone", label: "Smartphone", icon: "📱", desc: "Glued to your phone. Social and fun, but distracting — and the bills add up.", category: "fun", effects: { fun: 8, happiness: 2, health: -3, smarts: -3 }, cost: 1200, storyTag: "toy_phone" },
       { id: "bestFriend", label: "Best friend", icon: "🧑‍🤝‍🧑", person: "bestFriend", desc: "An inseparable best friend who has your back.", category: "social", effects: { happiness: 8, health: 2 }, storyTag: "friends" },
       { id: "crush", label: "First crush", icon: "😊", person: "crush", desc: "A nervous, giddy first crush. Butterflies everywhere.", category: "social", effects: { happiness: 9, fun: 3, smarts: -2 }, storyTag: "love" },
       { ...CHORES, label: "Odd jobs", desc: "Mow lawns and walk dogs for cash — pocket money of your own." },
@@ -165,11 +165,11 @@ export const STAGES: Stage[] = [
     scene: "school",
     options: [
       { id: "exams", label: "Study exams", icon: "📝", desc: "Cram for exams. Smarts now decide your future — but it's draining.", category: "smarts", effects: { smarts: 10, fun: -3, happiness: -2 }, storyTag: "study" },
-      { id: "party", label: "Party", icon: "🎉", desc: "Party with friends. Wild fun — but it costs sleep and cash (no money, no party).", category: "fun", effects: { fun: 9, happiness: 4, health: -4 }, cost: 4, storyTag: "party" },
+      { id: "party", label: "Party", icon: "🎉", desc: "Party with friends. Wild fun — but it costs sleep and cash (no money, no party).", category: "fun", effects: { fun: 9, happiness: 4, health: -4 }, cost: 1200, storyTag: "party" },
       { id: "sports", label: "Sports", icon: "🏈", desc: "Stay on the team — strong and confident.", category: "health", effects: { health: 8, happiness: 2 }, storyTag: "sports" },
-      { id: "job", label: "Part-time job", icon: "💵", desc: "Earn your own money. Smarter workers earn more.", category: "wealth", effects: { wealth: 8, fun: -3 }, scalesWithSmarts: true, storyTag: "work_teen" },
+      { id: "job", label: "Part-time job", icon: "💵", desc: "Earn your own money. A higher IQ earns more.", category: "wealth", effects: { fun: -3 }, earn: 2200, scalesWithSmarts: true, storyTag: "work_teen" },
       { id: "healthy", label: "Eat healthy", icon: "🥗", desc: "Choose real food over snacks. Your body thanks you.", category: "food", effects: { health: 7 }, storyTag: "veggies" },
-      { id: "fastfood", label: "Fast food", icon: "🍟", desc: "Daily fast food. Convenient, but it adds up — for your body and your wallet.", category: "food", effects: { fun: 6, health: -6 }, cost: 1, storyTag: "junkfood" },
+      { id: "fastfood", label: "Fast food", icon: "🍟", desc: "Daily fast food. Convenient, but it adds up — for your body and your wallet.", category: "food", effects: { fun: 6, health: -6 }, cost: 300, storyTag: "junkfood" },
       { id: "crush", label: "First love", icon: "💞", person: "crush", desc: "Fall head over heels. Dizzy, wonderful, a little distracting.", category: "social", effects: { happiness: 9, smarts: -2 }, storyTag: "love" },
       { id: "bestFriend", label: "Best friends", icon: "🧑‍🤝‍🧑", person: "bestFriend", desc: "The friends you'll remember forever.", category: "social", effects: { happiness: 8, health: 2 }, storyTag: "friends" },
       VEHICLE_STATION,
@@ -190,11 +190,11 @@ export const STAGES: Stage[] = [
     scene: "campus",
     options: [
       { id: "lectures", label: "Study", icon: "🎓", desc: "Lectures and the library. A degree pays off for life.", category: "smarts", effects: { smarts: 10, fun: -2 }, storyTag: "study" },
-      { id: "intern", label: "Internship", icon: "💼", desc: "Intern in your field — experience plus a pay cheque.", category: "wealth", effects: { wealth: 7, smarts: 4, fun: -3 }, scalesWithSmarts: true, storyTag: "internship" },
-      { id: "party", label: "Parties", icon: "🍻", desc: "Campus parties. Memorable, but rough on the body — and you need cash to join in.", category: "fun", effects: { fun: 9, health: -5 }, cost: 4, storyTag: "party" },
+      { id: "intern", label: "Internship", icon: "💼", desc: "Intern in your field — experience plus a pay cheque.", category: "wealth", effects: { smarts: 4, fun: -3 }, earn: 6000, scalesWithSmarts: true, storyTag: "internship" },
+      { id: "party", label: "Parties", icon: "🍻", desc: "Campus parties. Memorable, but rough on the body — and you need cash to join in.", category: "fun", effects: { fun: 9, health: -5 }, cost: 1200, storyTag: "party" },
       { id: "gym", label: "Gym", icon: "🏋️", desc: "Hit the gym. Builds lifelong health.", category: "health", effects: { health: 9, happiness: 2 }, storyTag: "exercise" },
-      { id: "travel", label: "Travel", icon: "🌍", desc: "Backpack abroad. Eye-opening fun — but you'll need the money saved up first.", category: "fun", effects: { fun: 8, happiness: 5 }, cost: 6, storyTag: "travel" },
-      { id: "ramen", label: "Instant noodles", icon: "🍜", desc: "Live on cheap noodles. Saves money, not your health.", category: "food", effects: { fun: 3, health: -5, wealth: 2 }, storyTag: "junkfood" },
+      { id: "travel", label: "Travel", icon: "🌍", desc: "Backpack abroad. Eye-opening fun — but you'll need the money saved up first.", category: "fun", effects: { fun: 8, happiness: 5 }, cost: 8000, storyTag: "travel" },
+      { id: "ramen", label: "Instant noodles", icon: "🍜", desc: "Live on cheap noodles. Saves a little money, not your health.", category: "food", effects: { fun: 3, health: -5 }, earn: 500, storyTag: "junkfood" },
       { id: "roommate", label: "Roommate", icon: "🧑", person: "roommate", desc: "Late-night talks and instant ramen with your roommate.", category: "social", effects: { happiness: 6, fun: 4 }, storyTag: "friends" },
       { id: "crush", label: "Romance", icon: "💞", person: "crush", desc: "A serious campus romance. Heady and warm.", category: "social", effects: { happiness: 9, fun: 3 }, storyTag: "love" },
       VEHICLE_STATION,
@@ -214,15 +214,15 @@ export const STAGES: Stage[] = [
     scene: "office",
     isCareer: true,
     options: [
-      { id: "overtime", label: "Overtime grind", icon: "⏰", desc: "Work 60-hour weeks. Big money — but it burns out your health, fun and joy.", category: "wealth", effects: { wealth: 12, health: -7, fun: -6, happiness: -4 }, scalesWithSmarts: true, storyTag: "overtime" },
-      { id: "work", label: "Steady work", icon: "💼", desc: "Solid, balanced work. Reliable income, life intact.", category: "wealth", effects: { wealth: 8, fun: -2 }, scalesWithSmarts: true, storyTag: "work" },
-      { id: "side", label: "Side hustle", icon: "💻", desc: "Build a side project for extra cash and skills.", category: "wealth", effects: { wealth: 7, smarts: 2, fun: -3 }, scalesWithSmarts: true, storyTag: "work" },
+      { id: "overtime", label: "Overtime grind", icon: "⏰", desc: "Work 60-hour weeks. Big money — but it burns out your health, fun and joy.", category: "wealth", effects: { health: -7, fun: -6, happiness: -4 }, earn: 42000, scalesWithSmarts: true, storyTag: "overtime" },
+      { id: "work", label: "Steady work", icon: "💼", desc: "Solid, balanced work. Reliable income, life intact.", category: "wealth", effects: { fun: -2 }, earn: 28000, scalesWithSmarts: true, storyTag: "work" },
+      { id: "side", label: "Side hustle", icon: "💻", desc: "Build a side project for extra cash and skills.", category: "wealth", effects: { smarts: 2, fun: -3 }, earn: 22000, scalesWithSmarts: true, storyTag: "work" },
       { id: "gym", label: "Gym", icon: "🏋️", desc: "Keep training. Health is the foundation of everything.", category: "health", effects: { health: 9 }, storyTag: "exercise" },
-      { id: "vacation", label: "Vacation", icon: "🏖️", desc: "Take a real holiday. Recharge body and soul — if you can afford the trip.", category: "fun", effects: { fun: 9, happiness: 6 }, cost: 6, storyTag: "travel" },
-      { id: "desk", label: "Desk fast food", icon: "🍔", desc: "Eat at your desk every day. Quietly erodes your health — and a daily expense.", category: "food", effects: { fun: 3, health: -6 }, cost: 1, storyTag: "junkfood" },
-      { id: "upskill", label: "Take a course", icon: "📚", desc: "Study evenings to upskill. More Smarts means a bigger salary — the course costs money.", category: "smarts", effects: { smarts: 7, fun: -2 }, cost: 3, storyTag: "upskill" },
+      { id: "vacation", label: "Vacation", icon: "🏖️", desc: "Take a real holiday. Recharge body and soul — if you can afford the trip.", category: "fun", effects: { fun: 9, happiness: 6 }, cost: 8000, storyTag: "travel" },
+      { id: "desk", label: "Desk fast food", icon: "🍔", desc: "Eat at your desk every day. Quietly erodes your health — and a daily expense.", category: "food", effects: { fun: 3, health: -6 }, cost: 300, storyTag: "junkfood" },
+      { id: "upskill", label: "Take a course", icon: "📚", desc: "Study evenings to upskill. A higher IQ means a bigger salary — the course costs money.", category: "smarts", effects: { smarts: 7, fun: -2 }, cost: 4000, storyTag: "upskill" },
       PROPERTY_STATION,
-      { id: "coworker", label: "Coworker", icon: "🧑‍💼", person: "coworker", desc: "Coffee and gossip with a work friend. Networking helps, too.", category: "social", effects: { happiness: 6, fun: 3, wealth: 1 }, storyTag: "friends" },
+      { id: "coworker", label: "Coworker", icon: "🧑‍💼", person: "coworker", desc: "Coffee and gossip with a work friend. Networking helps, too.", category: "social", effects: { happiness: 6, fun: 3 }, earn: 3000, storyTag: "friends" },
       { id: "gymBuddy", label: "Gym buddy", icon: "🏃", person: "gymBuddy", desc: "A workout partner who keeps you going. Fit and social.", category: "health", effects: { health: 7, happiness: 3, fun: 2 }, storyTag: "exercise" },
       VEHICLE_STATION,
       STOCKS_STATION,
@@ -241,9 +241,9 @@ export const STAGES: Stage[] = [
     isMarriage: true,
     atHome: true,
     options: [
-      { id: "baby", label: "Have a baby", icon: "👶", desc: "Start a family. Overwhelming love (and a few sleepless years).", category: "special", effects: { happiness: 12, wealth: -6, fun: -4, health: -2 }, once: true, storyTag: "baby" },
-      { id: "date", label: "Date nights", icon: "🌹", desc: "Keep the romance alive with your partner — a little money well spent.", category: "fun", effects: { happiness: 6, fun: 5 }, cost: 3, storyTag: "date" },
-      { id: "provide", label: "Work for family", icon: "💼", desc: "Provide for the household. Smarter careers pay more.", category: "wealth", effects: { wealth: 9, fun: -3 }, scalesWithSmarts: true, storyTag: "provide" },
+      { id: "baby", label: "Have a baby", icon: "👶", desc: "Start a family. Overwhelming love (and a few sleepless, costly years).", category: "special", effects: { happiness: 12, fun: -4, health: -2 }, cost: 5000, once: true, storyTag: "baby" },
+      { id: "date", label: "Date nights", icon: "🌹", desc: "Keep the romance alive with your partner — a little money well spent.", category: "fun", effects: { happiness: 6, fun: 5 }, cost: 1800, storyTag: "date" },
+      { id: "provide", label: "Work for family", icon: "💼", desc: "Provide for the household. A higher IQ and better job pay more.", category: "wealth", effects: { fun: -3 }, earn: 34000, scalesWithSmarts: true, storyTag: "provide" },
       { id: "meals", label: "Family meals", icon: "🥗", desc: "Cook healthy meals together. Good for everyone.", category: "food", effects: { health: 8, happiness: 2 }, storyTag: "veggies" },
       PROPERTY_STATION,
       { id: "active", label: "Stay active", icon: "🚴", desc: "Keep moving as a family. Health habits stick.", category: "health", effects: { health: 8, fun: 2 }, storyTag: "exercise" },
@@ -263,13 +263,13 @@ export const STAGES: Stage[] = [
     scene: "home",
     atHome: true,
     options: [
-      { id: "career", label: "Career peak", icon: "⏰", desc: "Climb to the top. Great money, hard on an aging body.", category: "wealth", effects: { wealth: 11, health: -6, fun: -4 }, scalesWithSmarts: true, storyTag: "overtime" },
+      { id: "career", label: "Career peak", icon: "⏰", desc: "Climb to the top. Great money, hard on an aging body.", category: "wealth", effects: { health: -6, fun: -4 }, earn: 60000, scalesWithSmarts: true, storyTag: "overtime" },
       { id: "exercise", label: "Exercise", icon: "🏃", desc: "Stay fit in midlife — it adds years to your life.", category: "health", effects: { health: 10 }, storyTag: "exercise" },
       { id: "hobby", label: "Hobbies", icon: "🎨", desc: "Pick up hobbies. Joy outside of work keeps you whole.", category: "fun", effects: { fun: 8, happiness: 4 }, storyTag: "hobby" },
       { id: "checkup", label: "Health checkup", icon: "🩺", desc: "Regular checkups catch problems early.", category: "health", effects: { health: 8, happiness: 1 }, storyTag: "checkup" },
       STOCKS_STATION,
-      { id: "stress", label: "Stress eating", icon: "🍩", desc: "Comfort food under pressure. It catches up with you — and quietly drains the wallet.", category: "food", effects: { fun: 4, health: -7, happiness: -2 }, cost: 1, storyTag: "junkfood" },
-      { id: "travel", label: "Family travel", icon: "✈️", desc: "Travel with the family. Priceless memories — paid for from real savings.", category: "fun", effects: { fun: 8, happiness: 6 }, cost: 6, storyTag: "travel" },
+      { id: "stress", label: "Stress eating", icon: "🍩", desc: "Comfort food under pressure. It catches up with you — and quietly drains the wallet.", category: "food", effects: { fun: 4, health: -7, happiness: -2 }, cost: 300, storyTag: "junkfood" },
+      { id: "travel", label: "Family travel", icon: "✈️", desc: "Travel with the family. Priceless memories — paid for from real savings.", category: "fun", effects: { fun: 8, happiness: 6 }, cost: 9000, storyTag: "travel" },
       { id: "upskill", label: "Upskill", icon: "📚", desc: "Keep learning at work — stay sharp and lift your earnings.", category: "smarts", effects: { smarts: 6, fun: -2 }, storyTag: "upskill" },
       { id: "spouse", label: "Spouse", icon: "💑", person: "spouse", desc: "Grow old together. A partner through midlife's storms.", category: "social", effects: { happiness: 7, health: 3 }, storyTag: "family" },
       { id: "child", label: "Your kids", icon: "🧑", person: "child", desc: "Raise and guide your growing children.", category: "social", effects: { happiness: 7, smarts: 2 }, storyTag: "family" },
@@ -313,7 +313,7 @@ export const STAGES: Stage[] = [
     scene: "sunset",
     atHome: true,
     options: [
-      { id: "travel", label: "See the world", icon: "✈️", desc: "Finally travel everywhere you dreamed of — funded by a life of saving.", category: "fun", effects: { fun: 9, happiness: 6 }, cost: 6, storyTag: "travel" },
+      { id: "travel", label: "See the world", icon: "✈️", desc: "Finally travel everywhere you dreamed of — funded by a life of saving.", category: "fun", effects: { fun: 9, happiness: 6 }, cost: 20000, storyTag: "travel" },
       { id: "garden", label: "Gardening", icon: "🌱", desc: "Tend a garden. Gentle exercise and quiet pride.", category: "health", effects: { health: 7, happiness: 4 }, storyTag: "exercise" },
       { id: "rest", label: "Rest & relax", icon: "🛋️", desc: "Take it easy. You've earned a peaceful pace.", category: "rest", effects: { health: 5, fun: 2 }, storyTag: "rest" },
       { id: "volunteer", label: "Volunteer", icon: "🤲", desc: "Give back to the community. Purpose keeps you vibrant.", category: "social", effects: { happiness: 7, smarts: 3 }, storyTag: "volunteer" },
