@@ -66,6 +66,7 @@ export const STAGES: Stage[] = [
       { id: "dad", label: "Dad", icon: "👨", person: "father", desc: "Dad lifts you high — giggles all round.", category: "social", effects: { happiness: 6, fun: 4 }, storyTag: "family_love" },
       { id: "grandma", label: "Grandma", icon: "👵", person: "grandma", desc: "Grandma hums you gentle lullabies.", category: "social", effects: { happiness: 6, smarts: 2 }, storyTag: "family_love" },
       { id: "grandpa", label: "Grandpa", icon: "👴", person: "grandpa", desc: "Grandpa rocks you with quiet old stories.", category: "social", effects: { happiness: 5, smarts: 3 }, storyTag: "family_love" },
+      { id: "sibling", label: "Big sibling", icon: "🧒", person: "sibling", desc: "Your big brother or sister peeks into the crib, wide-eyed with wonder.", category: "social", effects: { happiness: 6, fun: 3 }, storyTag: "friends" },
     ],
   },
   {
@@ -87,6 +88,7 @@ export const STAGES: Stage[] = [
       { id: "doll", label: "Doll", icon: "🧸", desc: "Cuddle a doll or teddy — gentle, nurturing play.", category: "social", effects: { happiness: 6, fun: 3 }, storyTag: "toy_doll" },
       { id: "mum", label: "Mum", icon: "👩", person: "mother", desc: "Read picture books on Mum's lap.", category: "social", effects: { happiness: 7, smarts: 3 }, storyTag: "family_love" },
       { id: "playmate", label: "Playmate", icon: "🧒", person: "playmate", desc: "Toddle after a little friend at the park.", category: "social", effects: { happiness: 6, fun: 4, health: 2 }, storyTag: "friends" },
+      { id: "babysib", label: "Baby sibling", icon: "👶", person: "sibling", desc: "A new baby has joined the family — your little brother or sister, growing fast.", category: "social", effects: { happiness: 6, health: 2 }, storyTag: "family" },
     ],
   },
   {
@@ -129,7 +131,7 @@ export const STAGES: Stage[] = [
       { id: "phone", label: "Smartphone", icon: "📱", desc: "Your first phone. Fun and connected — but it (and the bills) cost money.", category: "fun", effects: { fun: 7, happiness: 3, health: -2, smarts: -2 }, cost: 1200, storyTag: "toy_phone" },
       { id: "studyFriend", label: "Study pal", icon: "🧑‍🎓", person: "studyFriend", desc: "Do homework with a friend — you both learn more.", category: "smarts", effects: { smarts: 5, happiness: 4 }, storyTag: "friends" },
       { id: "playmate", label: "Friends", icon: "🧒", person: "playmate", desc: "Tag and hopscotch at recess with your gang.", category: "social", effects: { happiness: 7, health: 2, fun: 3 }, storyTag: "friends" },
-      { ...CHORES, desc: "Help around the house for pocket money — your first taste of earning." },
+      { id: "sibling", label: "Sibling", icon: "🧑", person: "sibling", desc: "Squabble, share secrets and play with your brother or sister — closer every year.", category: "social", effects: { happiness: 6, fun: 3 }, storyTag: "friends" },
       { id: "habitbook", label: "Habits book", icon: "📗", desc: "Read about good habits. Read it 5+ times across life and it sticks — lasting health.", category: "smarts", effects: { smarts: 3, happiness: 2 }, habit: true, storyTag: "read" },
     ],
   },

@@ -110,12 +110,12 @@ export function createUI(mount: HTMLElement): UIRefs {
   // --- canvas ---------------------------------------------------------------
   const stage = el("div", "plj-stage-wrap");
   const canvas = el("canvas", "plj-canvas");
-  // Supersample: draw in a 640x480 coordinate space but back it with a much
-  // larger pixel buffer (≈16× the pixels), then let the browser downscale it
-  // smoothly — giving crisp, high-resolution, anti-aliased art.
-  const SS = 4;
+  // Supersample: draw in a 640x560 coordinate space but back it with a 2× pixel
+  // buffer, then let the browser downscale it smoothly — crisp, anti-aliased art
+  // at a fraction of the fill cost (a 4× buffer made the bigger room lag).
+  const SS = 2;
   canvas.width = 640 * SS;
-  canvas.height = 480 * SS;
+  canvas.height = 560 * SS;
   const ctx = canvas.getContext("2d")!;
   ctx.scale(SS, SS);
   ctx.imageSmoothingEnabled = true;
