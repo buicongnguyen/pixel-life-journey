@@ -59,10 +59,17 @@ them in balance, and at the very end the game writes the **story of the life you
   large. Fun costs money — parties, holidays, games, eating out, even a scratch card — and
   **if you can't afford it, you can't do it**, so earning (jobs, chores, a side hustle)
   matters. High health, happiness and IQ even **discount** what activities cost you.
-- **💼 Occupation & commute** — choose a career (Doctor, Engineer, Teacher, Artist…); your
-  salary = the job × your IQ, and the best jobs need a high IQ. Then pick **how you commute
-  to work** — walk for free, or unlock the bus, a car or a chauffeured luxury car as your
-  net worth grows.
+- **💼 Career & profile** — choose from **16 careers** across fields (Service → Trades →
+  Tech → Medicine → Finance → Law → Business…); your salary = the job × your IQ, and the
+  best roles need a high IQ. **Change jobs or climb the ladder** any time from the 💼
+  Career desk, and open your **LinkedIn-style career profile** (💼 button or `P`) to see
+  your headline, seniority, current salary, lifetime earnings, connections and a full
+  job-history timeline. Then pick **how you commute to work** — walk free, or unlock the
+  bus, a car or a chauffeured luxury car as your net worth grows.
+- **🟢🔴 Chase the good, dodge the bad** — choices move: good things drift away (chase them
+  and press SPACE), bad things (junk food, screen-time) chase **you** and hit on contact —
+  unless you've eaten well / stayed fit enough to shrug them off. People stand still and
+  can block a bad thing on its way to you.
 - **🚲 Wheels** — from your teens, buy a **bicycle** (cheap and healthy), a **motorbike**
   (a thrill, a little risky), a **car** (comfort) or a **sports car** (pure status). The
   pricier the ride, the less is left for everything else.

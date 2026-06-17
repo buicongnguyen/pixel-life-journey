@@ -37,7 +37,7 @@ import {
 } from "./stats";
 import { STAGES } from "./stages";
 import { PARTNERS } from "./partners";
-import { OCCUPATIONS } from "./occupations";
+import { OCCUPATIONS, TIER_LABELS } from "./occupations";
 import { HOUSE_TIERS } from "./houses";
 import { VEHICLES } from "./vehicles";
 import { COMMUTES, type CommuteTier } from "./commutes";
@@ -89,7 +89,9 @@ type Mode =
   | "transition"
   | "ending"
   | "biolist"
-  | "bioauthor";
+  | "bioauthor"
+  | "profile"
+  | "careermove";
 
 type StationKind = "good" | "bad" | "person" | "neutral";
 
@@ -120,6 +122,8 @@ interface Snapshot {
   partnerId: string | null;
   occupationId: string | null;
   commute: string | null;
+  lifetimeEarned: number;
+  connections: number;
   homeQuality: number;
   homeIds: string[];
   hadChild: boolean;
@@ -166,6 +170,9 @@ export class Game {
   private mental = START_MENTAL; // mental wellbeing: family/friends + happiness
   private occupation: Occupation | null = null;
   private commute: string | null = null; // chosen commute (career selection stage)
+  private playerName = ""; // optional name for the LinkedIn-style career profile
+  private lifetimeEarned = 0; // total dollars earned from work over the whole life
+  private connections = 0; // professional network — grown by coworkers & networking
   private homeQuality = 0;
   private homes: HouseTier[] = []; // every property bought; you live in the best one
   private houseUpkeep = 0; // per-action dollar drain from your home (mortgage/upkeep)
@@ -253,6 +260,8 @@ export class Game {
       mental: Math.round(this.mental),
       occupation: this.occupation?.id ?? null,
       commute: this.commute,
+      lifetimeEarned: Math.round(this.lifetimeEarned),
+      connections: this.connections,
       money: Math.round(this.money),
       netWorth: Math.round(this.netWorth()),
       iq: Math.round(this.stats.smarts),
@@ -338,6 +347,8 @@ export class Game {
     if (Math.random() < 0.02) this.iqCeiling = 150 + Math.floor(Math.random() * 11); // ~2% gifted (150-160)
     this.geneBonus = Math.round((Math.random() * 10 - 5) * 10) / 10; // longevity genes -5..+5
     this.familyBond = 0;
+    this.lifetimeEarned = 0;
+    this.connections = 0;
     this.fullness = { diet: 0, fit: 0 };
     this.owned = new Set();
     this.bigFired = false;
@@ -402,6 +413,8 @@ export class Game {
       partnerId: this.partner?.id ?? null,
       occupationId: this.occupation?.id ?? null,
       commute: this.commute,
+      lifetimeEarned: this.lifetimeEarned,
+      connections: this.connections,
       homeQuality: this.homeQuality,
       homeIds: this.homes.map((h) => h.id),
       hadChild: this.hadChild,
@@ -470,7 +483,7 @@ export class Game {
    *  (bad), pickers are static (neutral), and everything beneficial FLEES (good). */
   private classifyOption(opt: LifeOption): { kind: StationKind; guard?: string } {
     if (opt.person) return { kind: "person" };
-    if (opt.opensHousePicker || opt.opensVehiclePicker || opt.gamble || opt.invest || opt.moneyMgmt || opt.category === "special")
+    if (opt.opensHousePicker || opt.opensVehiclePicker || opt.opensCareerDesk || opt.gamble || opt.invest || opt.moneyMgmt || opt.category === "special")
       return { kind: "neutral" };
     const t = opt.storyTag;
     if (t === "junkfood") return { kind: "bad", guard: "diet" }; // avoid by eating well
@@ -685,6 +698,12 @@ export class Game {
       this.showVehicle();
       return;
     }
+    // the career desk opens the change-job / promotion picker
+    if (opt.opensCareerDesk) {
+      this.mode = "careermove";
+      this.showCareerMove();
+      return;
+    }
 
     // Affordability gate: a cost / invest / gamble stake can't be paid when broke.
     const gateCost = opt.cost ? Math.round(opt.cost * activityDiscount(this.stats)) : 0;
@@ -716,8 +735,13 @@ export class Game {
     if (opt.earn) {
       let amt = opt.earn;
       if (opt.scalesWithSmarts) amt *= this.incomeMul() * (this.occupation?.salaryMul ?? 1);
-      moneyDelta += Math.round(amt);
+      amt = Math.round(amt);
+      moneyDelta += amt;
+      if (amt > 0) this.lifetimeEarned += amt; // lifetime career earnings (for the profile)
     }
+    // your professional network grows when you spend time with people / network
+    if (opt.storyTag === "network") this.connections += 20 + Math.floor(Math.random() * 21);
+    else if (opt.person || opt.category === "social") this.connections += 1 + Math.floor(Math.random() * 3);
     // pay any up-front (already-discounted) cost
     if (realCost) moneyDelta -= realCost;
     // buying stocks moves the stake out of cash and into the market pot
@@ -1191,6 +1215,8 @@ export class Game {
     this.mental = snap.mental;
     this.age = snap.age;
     this.commute = snap.commute;
+    this.lifetimeEarned = snap.lifetimeEarned;
+    this.connections = snap.connections;
     this.homes = snap.homeIds.map((id) => HOUSE_TIERS.find((h) => h.id === id)).filter(Boolean) as HouseTier[];
     this.recomputeHomes();
     this.hadChild = snap.hadChild;
@@ -1399,6 +1425,8 @@ export class Game {
       this.mode === "vehicle" ||
       this.mode === "commute" ||
       this.mode === "timetravel" ||
+      this.mode === "profile" ||
+      this.mode === "careermove" ||
       this.mode === "event";
     if (inRoom && this.stageIndex < STAGES.length) {
       const s = STAGES[this.stageIndex];
@@ -1506,6 +1534,9 @@ export class Game {
     // time-travel pill appears once you have a past worth revisiting
     const canRewind = this.mode === "playing" && !this.biography && this.timeline.filter(Boolean).length > 1;
     this.ui.timeTravel.style.display = canRewind ? "flex" : "none";
+    // career profile pill appears once you've started working
+    const canProfile = this.mode === "playing" && this.stageIndex >= CAREER_INDEX;
+    this.ui.profileBtn.style.display = canProfile ? "flex" : "none";
   }
 
   private renderFocusPanel(): void {
@@ -1586,6 +1617,8 @@ export class Game {
     this.ui.overlay.innerHTML = `
       <div class="plj-card plj-title">
         <h2>A new life begins…</h2>
+        <p class="plj-sub">Name your character (optional) — it shows on your career profile.</p>
+        <div class="plj-bio-head"><input id="plj-setup-name" placeholder="Name (optional)" maxlength="40"></div>
         <p class="plj-sub">Is it a boy or a girl?</p>
         <div class="plj-genders">
           <button class="plj-gender" data-g="male"><span class="plj-gender-face">👦</span><span>Boy</span></button>
@@ -1596,6 +1629,7 @@ export class Game {
     this.ui.overlay.classList.add("show");
     this.ui.overlay.querySelectorAll<HTMLButtonElement>(".plj-gender").forEach((btn) => {
       btn.onclick = () => {
+        this.playerName = (this.ui.overlay.querySelector<HTMLInputElement>("#plj-setup-name")?.value ?? "").slice(0, 40);
         this.gender = btn.dataset.g === "female" ? "female" : "male";
         this.newGame();
       };
@@ -1609,6 +1643,7 @@ export class Game {
     this.biography = bio;
     this.gender = bio.gender;
     this.newGame(true); // keep the biography; loadStage(0) builds its moments
+    this.playerName = bio.name; // the profile shows whose life this is
   }
 
   private showBioList(): void {
@@ -1927,6 +1962,119 @@ export class Game {
     });
   }
 
+  /** The 💼 Career desk: change jobs or climb the ladder (IQ-gated). */
+  private showCareerMove(): void {
+    const cur = this.occupation;
+    const cards = OCCUPATIONS.map((o) => {
+      const locked = this.stats.smarts < o.minIq;
+      const isCur = cur?.id === o.id;
+      const better = cur ? o.salaryMul > cur.salaryMul : false;
+      const pay = formatMoney(Math.round(28000 * this.incomeMul() * o.salaryMul));
+      const tag = isCur ? "✓ current" : locked ? `🔒 needs 🧠 ${o.minIq}` : better ? "Promote ↑" : "Switch";
+      const tagColor = isCur ? "#9fe0b8" : locked ? "#ff8a8a" : better ? "#ffd23f" : "#7fc9ff";
+      return `
+      <button class="plj-partner${isCur || locked ? " locked" : ""}" data-id="${o.id}" ${isCur || locked ? "disabled" : ""}>
+        <span class="plj-partner-face">${o.emoji}</span>
+        <span class="plj-partner-name">${o.name}</span>
+        <span class="plj-partner-title">${TIER_LABELS[o.tier]} · ${o.field}</span>
+        <span class="plj-partner-blurb">${o.blurb}</span>
+        <span class="plj-chips"><span class="plj-chip" style="color:#3ddc84">${pay}/yr</span><span class="plj-chip" style="color:${tagColor}">${tag}</span></span>
+      </button>`;
+    }).join("");
+    this.ui.overlay.innerHTML = `
+      <div class="plj-card plj-partners-card">
+        <h2>💼 Make a career move</h2>
+        <p class="plj-sub">Change jobs or climb the ladder. Salary = the job × your IQ, so better roles need a higher IQ.${cur ? ` You're a ${esc(cur.name)} now.` : ""}</p>
+        <div class="plj-partners">${cards}</div>
+        <button class="plj-btn plj-btn-ghost" id="plj-cm-cancel">Stay put</button>
+      </div>`;
+    this.ui.overlay.classList.add("show");
+    this.ui.overlay.querySelectorAll<HTMLButtonElement>(".plj-partner:not(.locked)").forEach((btn) => {
+      btn.onclick = () => {
+        const o = OCCUPATIONS.find((x) => x.id === btn.dataset.id);
+        if (o) this.changeJob(o);
+      };
+    });
+    this.ui.overlay.querySelector<HTMLButtonElement>("#plj-cm-cancel")!.onclick = () => {
+      this.mode = "playing";
+      this.clearOverlay();
+    };
+  }
+
+  private changeJob(o: Occupation): void {
+    const prev = this.occupation;
+    this.occupation = o;
+    if (o.perks) this.applyEff(o.perks, "split");
+    this.applyEff({ happiness: 4 }, "mental");
+    this.history.push({
+      stageId: STAGES[this.stageIndex].id,
+      stageName: STAGES[this.stageIndex].name,
+      optionId: "job_" + o.id,
+      storyTag: o.storyTag,
+      ageAt: this.age,
+    });
+    this.mode = "playing";
+    this.clearOverlay();
+    this.hint(prev && o.salaryMul > prev.salaryMul ? `📈 You were promoted to ${o.name}!` : `${o.emoji} You're now a ${o.name}.`);
+  }
+
+  /** A LinkedIn-style career profile: headline, salary, lifetime earnings, history. */
+  private showProfile(): void {
+    if (this.mode !== "playing" || this.stageIndex < CAREER_INDEX) return;
+    this.mode = "profile";
+    const o = this.occupation;
+    const name = this.playerName.trim() || (this.gender === "female" ? "Alex" : "Sam");
+    const iq = Math.round(this.stats.smarts);
+    const salary = o ? formatMoney(Math.round(28000 * this.incomeMul() * o.salaryMul)) : "—";
+    const headline = o ? `${o.name} · ${o.field}` : "Finding my path";
+    const badges: string[] = [];
+    if (o) badges.push(`📊 ${TIER_LABELS[o.tier]}`);
+    if (this.netWorth() > 1000000) badges.push("⭐ Premium");
+    if (iq >= 130) badges.push("✔️ verified");
+    if (o && o.tier >= 6) badges.push("💼 Hiring");
+    // experience timeline from every job ever held
+    const jobs = this.history
+      .filter((h) => h.optionId.startsWith("job_"))
+      .map((h) => OCCUPATIONS.find((x) => "job_" + x.id === h.optionId) && { occ: OCCUPATIONS.find((x) => "job_" + x.id === h.optionId)!, from: Math.floor(h.ageAt) })
+      .filter(Boolean) as { occ: Occupation; from: number }[];
+    const tl = jobs
+      .map((j, i) => ({ ...j, to: i < jobs.length - 1 ? jobs[i + 1].from : Math.floor(this.age) }))
+      .reverse();
+    const timeline = tl.length
+      ? tl.map((j) => `<div class="plj-prof-job"><span>${j.occ.emoji} <b>${esc(j.occ.name)}</b> · ${j.occ.field}</span><span class="plj-prof-yrs">age ${j.from}–${j.to}</span></div>`).join("")
+      : `<p class="plj-sub">No jobs held yet.</p>`;
+    this.ui.overlay.innerHTML = `
+      <div class="plj-card plj-profile">
+        <div class="plj-prof-head">
+          <div class="plj-prof-avatar">${o ? o.emoji : "🧑"}</div>
+          <div class="plj-prof-id">
+            <h2>${esc(name)}</h2>
+            <p class="plj-prof-headline">${esc(headline)} · 🧠 ${iq}</p>
+            ${badges.length ? `<p class="plj-prof-badges">${badges.join(" · ")}</p>` : ""}
+          </div>
+        </div>
+        <div class="plj-prof-stats">
+          <span><b>${salary}</b><small>per year</small></span>
+          <span><b>${formatMoney(this.lifetimeEarned)}</b><small>earned</small></span>
+          <span><b>${this.connections >= 500 ? "500+" : this.connections}</b><small>connections</small></span>
+          <span><b>${formatMoney(this.netWorth())}</b><small>net worth</small></span>
+        </div>
+        <h3 class="plj-prof-h3">💼 Experience</h3>
+        <div class="plj-prof-timeline">${timeline}</div>
+        <div class="plj-title-row">
+          <button class="plj-btn plj-btn-ghost" id="plj-prof-close">← Back</button>
+          ${o ? `<button class="plj-btn" id="plj-prof-move">📈 Make a move</button>` : ""}
+        </div>
+      </div>`;
+    this.ui.overlay.classList.add("show");
+    this.ui.overlay.querySelector<HTMLButtonElement>("#plj-prof-close")!.onclick = () => {
+      this.mode = "playing";
+      this.clearOverlay();
+    };
+    const mv = this.ui.overlay.querySelector<HTMLButtonElement>("#plj-prof-move");
+    if (mv) mv.onclick = () => this.showCareerMove();
+  }
+
   private showHouse(): void {
     const stars = (q: number) => "★".repeat(q) + "☆".repeat(5 - q);
     const cards = HOUSE_TIERS.map((h) => {
@@ -2125,6 +2273,9 @@ export class Game {
         case "t": case "T":
           if (down) this.showTimeTravel();
           break;
+        case "p": case "P":
+          if (down) this.showProfile();
+          break;
         default: return;
       }
       e.preventDefault();
@@ -2149,6 +2300,7 @@ export class Game {
       this.actQueued = true;
     });
     this.ui.timeTravel.addEventListener("click", () => this.showTimeTravel());
+    this.ui.profileBtn.addEventListener("click", () => this.showProfile());
   }
 }
 

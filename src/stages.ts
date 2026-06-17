@@ -37,6 +37,8 @@ const themes: Record<string, RoomTheme> = {
 
 const VEHICLE_STATION: LifeOption = { id: "vehicle", label: "Buy a vehicle", icon: "🛵", desc: "Buy a bicycle, motorbike or car — your own set of wheels. Pick what you can afford.", category: "special", effects: {}, opensVehiclePicker: true, storyTag: "vehicle" };
 const PROPERTY_STATION: LifeOption = { id: "property", label: "Buy property", icon: "🏠", desc: "Buy a home to live in — or a second place to rent out for income. Grander homes cost more to keep.", category: "special", effects: {}, opensHousePicker: true, storyTag: "home" };
+const CAREER_DESK: LifeOption = { id: "careermove", label: "Career desk", icon: "💼", desc: "Change jobs or push for a promotion — climb the ladder to a bigger salary (open the profile with P).", category: "wealth", effects: {}, opensCareerDesk: true, storyTag: "careermove" };
+const NETWORK: LifeOption = { id: "network", label: "Network", icon: "🤝", desc: "Grow your professional network — connections open doors and fill out your profile.", category: "social", effects: { happiness: 3 }, storyTag: "network" };
 const STOCKS_STATION: LifeOption = { id: "stocks", label: "Buy stocks", icon: "📈", desc: "Move $25k into the market. It compounds over the years — your IQ and money sense grow the returns.", category: "wealth", effects: {}, invest: 25000, storyTag: "invest_stocks" };
 const MONEY_SKILLS: LifeOption = { id: "moneyskills", label: "Money skills", icon: "📊", desc: "Take a money course ($4k) — steadier, stronger investment returns for the rest of your life.", category: "smarts", effects: { smarts: 5, happiness: 1 }, cost: 4000, permanent: true, moneyMgmt: true, storyTag: "moneywise" };
 const SCRATCHCARD: LifeOption = { id: "scratch", label: "Scratch card", icon: "🎫", desc: "A $10 flutter. Most cards lose, some win small — a lucky few hit the top prize.", category: "fun", effects: {}, gamble: { stake: 10, jackpotChance: 0.05, jackpot: 40000, prizeChance: 0.34, prize: 200, jackpotStory: "scratched a card and hit the top prize", prizeStory: "won a little on a scratch card", bustStory: "fed a few coins to losing scratch cards" }, storyTag: "gamble" };
@@ -227,6 +229,8 @@ export const STAGES: Stage[] = [
       VEHICLE_STATION,
       STOCKS_STATION,
       CASINO,
+      CAREER_DESK,
+      NETWORK,
     ],
   },
   {
@@ -275,6 +279,8 @@ export const STAGES: Stage[] = [
       { id: "child", label: "Your kids", icon: "🧑", person: "child", desc: "Raise and guide your growing children.", category: "social", effects: { happiness: 7, smarts: 2 }, storyTag: "family" },
       PROPERTY_STATION,
       CASINO,
+      CAREER_DESK,
+      NETWORK,
       { id: "habitbook", label: "Habits book", icon: "📗", desc: "Read about good habits. Read it 5+ times across life and it sticks — lasting health.", category: "smarts", effects: { smarts: 3, happiness: 2 }, habit: true, storyTag: "read" },
     ],
   },
@@ -299,6 +305,8 @@ export const STAGES: Stage[] = [
       { id: "oldFriend", label: "Old friends", icon: "🧓", person: "oldFriend", desc: "Reminisce with lifelong friends. Connection keeps you alive.", category: "social", effects: { happiness: 8, health: 3 }, storyTag: "friends" },
       PROPERTY_STATION,
       BINGO,
+      CAREER_DESK,
+      NETWORK,
       { id: "habitbook", label: "Habits book", icon: "📗", desc: "Read about good habits. Read it 5+ times across life and it sticks — lasting health.", category: "smarts", effects: { smarts: 3, happiness: 2 }, habit: true, storyTag: "read" },
     ],
   },

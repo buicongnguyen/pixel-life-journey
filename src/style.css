@@ -509,6 +509,113 @@ body {
 .plj-timetravel:active {
   transform: translateY(2px);
 }
+.plj-profile-btn {
+  position: absolute;
+  top: 8px;
+  left: 50px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid #5db8ff;
+  background: rgba(34, 22, 67, 0.85);
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  z-index: 4;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+}
+.plj-profile-btn:active {
+  transform: translateY(2px);
+}
+
+/* ---- career profile ----------------------------------------------------- */
+.plj-profile {
+  max-width: 520px;
+  width: 92%;
+  text-align: left;
+}
+.plj-prof-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.plj-prof-avatar {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34px;
+  background: linear-gradient(180deg, #2c1e54, #160f2c);
+  border: 3px solid #5db8ff;
+}
+.plj-prof-id h2 {
+  margin: 0;
+  text-align: left;
+}
+.plj-prof-headline {
+  margin: 2px 0;
+  font-size: 13px;
+  color: var(--ink);
+}
+.plj-prof-badges {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #9fe0b8;
+}
+.plj-prof-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin: 10px 0;
+}
+.plj-prof-stats > span {
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.plj-prof-stats b {
+  font-size: 16px;
+  color: #3ddc84;
+}
+.plj-prof-stats small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.plj-prof-h3 {
+  margin: 8px 0 6px;
+  font-size: 14px;
+}
+.plj-prof-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 32vh;
+  overflow-y: auto;
+}
+.plj-prof-job {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 3px solid #5db8ff;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.plj-prof-yrs {
+  color: var(--muted);
+  white-space: nowrap;
+}
 
 /* ---- gender pick (setup) ------------------------------------------------ */
 .plj-genders {

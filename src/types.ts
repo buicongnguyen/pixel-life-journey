@@ -99,6 +99,8 @@ export interface LifeOption {
   weight?: number;
   /** Choosing this opens the house-buying picker instead of a normal action. */
   opensHousePicker?: boolean;
+  /** Choosing this opens the career-move picker (change job / get promoted). */
+  opensCareerDesk?: boolean;
   /** Choosing this opens the vehicle-buying picker (bike / motorbike / car…). */
   opensVehiclePicker?: boolean;
   /** A repeatable "good habit" — reading it 5+ times across life pays off in health. */
@@ -204,6 +206,10 @@ export interface Occupation {
   name: string;
   emoji: string;
   blurb: string;
+  /** Industry/field, e.g. "Tech", "Medicine" — groups the career ladder. */
+  field: string;
+  /** Seniority tier 1..9 (1 Intern … 9 C-Suite), shown on the profile. */
+  tier: number;
   /** Multiplier on the money earned from work-style options. */
   salaryMul: number;
   /** IQ required to unlock this career. */
