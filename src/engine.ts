@@ -59,14 +59,20 @@ import { createUI, type UIRefs } from "./ui";
 import { generateStory, type CauseOfEnd, type LifeStory } from "./story";
 
 const W = 640;
-const H = 360;
-const FLOOR_Y = 250;
+const H = 480; // taller room → about twice the floor to walk and dodge in
+const FLOOR_Y = 240;
 const DOOR_X = W - 74;
-const SPEED = 162;
-const ROW_BACK = 274;
-const ROW_FRONT = 330;
-const PY_MIN = 262;
-const PY_MAX = 348;
+const SPEED = 210; // a bit faster to cross the bigger floor
+const ROW_BACK = 300;
+const ROW_FRONT = 440;
+const PY_MIN = 280;
+const PY_MAX = 468;
+// --- moving-items mechanic ---
+const GOOD_SPEED = 24; // good items drift AWAY (chase them + press to collect)
+const BAD_SPEED = 34; // bad items drift TOWARD you (auto-applied on contact)
+const ITEM_R = 26; // contact / collect radius
+const BLOCK_R = 30; // an NPC standing in the path blocks a bad item
+const FULL_NEED = 40; // fullness needed to brush off the matching bad item
 const CAREER_INDEX = STAGES.findIndex((s) => s.id === "career");
 
 type Mode =
@@ -85,10 +91,19 @@ type Mode =
   | "biolist"
   | "bioauthor";
 
+type StationKind = "good" | "bad" | "person" | "neutral";
+
 interface Station {
   x: number;
   y: number;
+  vx: number;
+  vy: number;
   opt: LifeOption;
+  kind: StationKind;
+  /** For bad items: which "fullness" category lets you avoid it (diet / fit). */
+  guard?: string;
+  /** Seconds before a bad item can catch you again after a contact. */
+  contactCd: number;
 }
 
 /** A rewindable snapshot of the whole life, captured at each stage's start. */
@@ -160,6 +175,9 @@ export class Game {
   private iqCeiling = 100; // lifelong IQ potential, rolled at birth
   private geneBonus = 0; // longevity genetics (-5..+5 yrs), rolled at birth
   private familyBond = 0; // time invested in family — unlocks grandkids later
+  // "fullness": eating healthy fills diet, exercising fills fit — and being full
+  // lets you brush off the matching bad item (junk food / sedentary) when it hits.
+  private fullness: Record<string, number> = { diet: 0, fit: 0 };
   private owned = new Set<string>(); // one-off, owned-for-life purchases (vehicles, skills)
   private bigFired = false; // a "big" windfall already happened (1/life)
   private jackpotFired = false; // a jackpot already happened (1/life total)
@@ -188,7 +206,7 @@ export class Game {
   private focusIndex = -1;
 
   private px = 46;
-  private py = 236;
+  private py = 380;
   private walkPhase = 0;
   private moving = false;
   private cooldown = 0;
@@ -320,6 +338,7 @@ export class Game {
     if (Math.random() < 0.02) this.iqCeiling = 150 + Math.floor(Math.random() * 11); // ~2% gifted (150-160)
     this.geneBonus = Math.round((Math.random() * 10 - 5) * 10) / 10; // longevity genes -5..+5
     this.familyBond = 0;
+    this.fullness = { diet: 0, fit: 0 };
     this.owned = new Set();
     this.bigFired = false;
     this.jackpotFired = false;
@@ -350,7 +369,7 @@ export class Game {
     this.usedOnce.clear();
     this.age = Math.max(this.age, s.ageStart);
     this.px = 70;
-    this.py = 322;
+    this.py = 380;
     this.focusIndex = -1;
     this.buildStations();
     this.renderFocusPanel(); // reset the panel to the default prompt on stage entry
@@ -447,26 +466,49 @@ export class Game {
     };
   }
 
+  /** Sort each choice into a kind: people are static, junk/screen-time CHASE you
+   *  (bad), pickers are static (neutral), and everything beneficial FLEES (good). */
+  private classifyOption(opt: LifeOption): { kind: StationKind; guard?: string } {
+    if (opt.person) return { kind: "person" };
+    if (opt.opensHousePicker || opt.opensVehiclePicker || opt.gamble || opt.invest || opt.moneyMgmt || opt.category === "special")
+      return { kind: "neutral" };
+    const t = opt.storyTag;
+    if (t === "junkfood") return { kind: "bad", guard: "diet" }; // avoid by eating well
+    if (t === "sedentary" || t === "gaming" || t === "screen" || t === "toy_phone") return { kind: "bad", guard: "fit" }; // avoid by staying fit
+    return { kind: "good" };
+  }
+
   private buildStations(): void {
     const opts = this.currentOptions();
     const n = opts.length;
-    const xStart = 104;
+    const xStart = 100;
     const xEnd = W - 120;
-    // Spread every option across the width and alternate back/front rows, so no
-    // two ever share a column — this keeps tall NPCs from hiding items behind
-    // them and stops the always-on labels from overlapping each other.
-    this.stations = opts.map((opt, i) => ({
-      x: n === 1 ? (xStart + xEnd) / 2 : xStart + ((xEnd - xStart) * i) / (n - 1),
-      y: i % 2 === 0 ? ROW_BACK : ROW_FRONT,
-      opt,
-    }));
+    const rows = [ROW_BACK, (ROW_BACK + ROW_FRONT) / 2, ROW_FRONT];
+    // Spread choices across the width and over three rows of the (now taller)
+    // floor. Good/bad items get their velocity in moveStations; people & pickers
+    // stay put.
+    this.stations = opts.map((opt, i) => {
+      const c = this.classifyOption(opt);
+      return {
+        x: n === 1 ? (xStart + xEnd) / 2 : xStart + ((xEnd - xStart) * i) / (n - 1),
+        y: rows[i % 3],
+        vx: 0,
+        vy: 0,
+        opt,
+        kind: c.kind,
+        guard: c.guard,
+        contactCd: 0,
+      } as Station;
+    });
   }
 
   // --- per-stage balance helpers -------------------------------------------
 
   private stageStep(): number {
     const s = STAGES[this.stageIndex];
-    return Math.max(0.12, Math.min(3, (s.ageEnd - s.ageStart) / 7));
+    // ~half the old pace, so each chapter gives roughly twice the actions —
+    // more room to study, exercise and live before the door opens.
+    return Math.max(0.06, Math.min(1.6, (s.ageEnd - s.ageStart) / 14));
   }
 
   /** The chapter door is open once you're old enough — or always, when replaying
@@ -609,14 +651,15 @@ export class Game {
   private doAction(): void {
     if (this.mode !== "playing" || this.cooldown > 0) return;
 
-    // allow pressing action near an open door to advance (handy on touch)
-    const s = STAGES[this.stageIndex];
+    // near the open door? walk through to advance (also handy on touch)
     if (this.focusIndex < 0) {
       if (this.doorOpen() && this.px > DOOR_X - 36) this.advanceStage();
       return;
     }
 
-    const opt = this.stations[this.focusIndex].opt;
+    const st = this.stations[this.focusIndex];
+    if (st.kind === "bad") return; // bad things aren't pressed — they catch you
+    const opt = st.opt;
     if (opt.once && this.usedOnce.has(opt.id)) {
       this.hint("You already did that this chapter.");
       return;
@@ -643,18 +686,26 @@ export class Game {
       return;
     }
 
-    // High, steady stats discount the dollar cost of an activity (fit/happy/sharp
-    // people get more out of life for less).
-    const discount = activityDiscount(this.stats);
-    const realCost = opt.cost ? Math.round(opt.cost * discount) : 0;
-
-    // Affordability gate: a cost, an investment stake, or a gamble stake simply
-    // can't be paid when you're too broke. Nothing happens — not enough money.
-    const price = realCost + (opt.invest ?? 0) + (opt.gamble?.stake ?? 0);
+    // Affordability gate: a cost / invest / gamble stake can't be paid when broke.
+    const gateCost = opt.cost ? Math.round(opt.cost * activityDiscount(this.stats)) : 0;
+    const price = gateCost + (opt.invest ?? 0) + (opt.gamble?.stake ?? 0);
     if (price > 0 && this.money < price) {
       this.hint("💸 Not enough money for that.");
       return;
     }
+    this.cooldown = 0.28;
+    this.applyOption(opt);
+  }
+
+  /**
+   * Apply a choice's full outcome — effects, money, weight, ageing, habits and
+   * events. Used both when you PRESS a good/neutral choice and when a BAD thing
+   * catches you (auto). Gating + pickers are the caller's job.
+   */
+  private applyOption(opt: LifeOption): void {
+    const s = STAGES[this.stageIndex];
+    const discount = activityDiscount(this.stats);
+    const realCost = opt.cost ? Math.round(opt.cost * discount) : 0;
 
     const eff: Partial<Stats> = { ...opt.effects };
     // IQ never jumps: damp a single action's brain delta to a couple of points
@@ -677,6 +728,11 @@ export class Game {
     }
     // learning money management switches on smarter, steadier returns for life
     if (opt.moneyMgmt) this.moneyWise = true;
+
+    // eating well "fills you up" (wards off junk food); exercise keeps you "fit"
+    // (wards off the couch) — these let you brush off the matching bad item.
+    if (opt.category === "food" && (opt.effects.health ?? 0) > 0) this.fullness.diet = Math.min(130, this.fullness.diet + 60);
+    if (opt.category === "health") this.fullness.fit = Math.min(130, this.fullness.fit + 60);
 
     // try-your-luck: roll the gamble and fold the dollar outcome in
     let gambleClause: string | null = null;
@@ -721,7 +777,6 @@ export class Game {
     this.age += opt.ageCost ?? this.stageStep();
     this.passiveTick();
     this.sampleHealth();
-    this.cooldown = 0.28;
     if (opt.once) {
       this.usedOnce.add(opt.id);
       this.renderFocusPanel(); // reflect the "already done" state
@@ -1226,6 +1281,14 @@ export class Game {
       this.walkPhase += dt * 3;
     }
 
+    // items move (good flee, bad chase, people block), fullness fades, and any
+    // bad thing that catches you applies automatically
+    this.moveStations(dt);
+    this.fullness.diet = Math.max(0, this.fullness.diet - 5 * dt);
+    this.fullness.fit = Math.max(0, this.fullness.fit - 5 * dt);
+    this.checkBadContacts();
+    if (this.mode !== "playing") return;
+
     if (this.actQueued) {
       this.actQueued = false;
       this.doAction();
@@ -1251,20 +1314,73 @@ export class Game {
   }
 
   private updateFocus(): void {
+    // only good/neutral/person items can be FOCUSED and pressed — bad things are
+    // auto-collected on contact, never pressed
     let best = -1;
-    let bestDx = 999;
+    let bestD = 999;
     this.stations.forEach((st, i) => {
+      if (st.kind === "bad") return;
       const dx = Math.abs(this.px - st.x);
       const dy = Math.abs(this.py - st.y);
-      if (dx < 34 && dy < 34 && dx < bestDx) {
+      if (dx < 38 && dy < 42 && dx + dy < bestD) {
         best = i;
-        bestDx = dx;
+        bestD = dx + dy;
       }
     });
     if (best !== this.focusIndex) {
       this.focusIndex = best;
       this.renderFocusPanel();
     }
+  }
+
+  /** Move good items away from the player and bad items toward them; people block bad. */
+  private moveStations(dt: number): void {
+    for (const st of this.stations) {
+      if (st.contactCd > 0) st.contactCd -= dt;
+      if (st.kind !== "good" && st.kind !== "bad") continue;
+      const dx = this.px - st.x;
+      const dy = this.py - st.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const dir = st.kind === "bad" ? 1 : -1; // bad → toward you, good → away
+      const sp = st.kind === "bad" ? BAD_SPEED : GOOD_SPEED;
+      let nx = st.x + (dir * dx / d) * sp * dt;
+      let ny = st.y + (dir * dy / d) * sp * dt;
+      if (st.kind === "bad") {
+        for (const p of this.stations) {
+          if (p.kind === "person" && Math.hypot(nx - p.x, ny - p.y) < BLOCK_R) {
+            nx = st.x; // an NPC stands in the way — the bad thing can't get past
+            ny = st.y;
+            break;
+          }
+        }
+      }
+      st.x = Math.max(80, Math.min(W - 90, nx));
+      st.y = Math.max(PY_MIN, Math.min(PY_MAX, ny));
+    }
+  }
+
+  /** A bad item touching the player applies automatically — unless you're full/fit. */
+  private checkBadContacts(): void {
+    for (const st of this.stations) {
+      if (st.kind !== "bad" || st.contactCd > 0) continue;
+      if (Math.hypot(this.px - st.x, this.py - st.y) > ITEM_R) continue;
+      st.contactCd = 2.6;
+      if (st.guard && this.fullness[st.guard] >= FULL_NEED) {
+        // too full / too fit to be tempted — brush it off, no effect
+        this.fullness[st.guard] = Math.max(0, this.fullness[st.guard] - 30);
+        this.floats.push({ x: st.x, y: st.y - 30, text: st.guard === "diet" ? "🛡️ too full!" : "🛡️ too fit!", color: "#7fd0a0", life: 1.2 });
+      } else {
+        this.applyOption(st.opt); // you "just get" the bad thing
+      }
+      this.respawnBadItem(st); // it circles back for another go
+      if (this.mode !== "playing") return; // applyOption may have ended the life
+    }
+  }
+
+  /** Send a bad item back to a far edge so it has to chase you down again. */
+  private respawnBadItem(st: Station): void {
+    st.x = this.px > W / 2 ? 90 + Math.random() * 60 : W - 160 - Math.random() * 60;
+    st.y = PY_MIN + Math.random() * (PY_MAX - PY_MIN);
   }
 
   // --- rendering ------------------------------------------------------------
@@ -1307,6 +1423,17 @@ export class Game {
         const st = d.station;
         const focused = this.stations[this.focusIndex] === st && this.mode === "playing";
         const used = !!st.opt.once && this.usedOnce.has(st.opt.id);
+        // a ground-ring marks moving items: red = a BAD thing chasing you (dodge
+        // it!), green = a GOOD thing fleeing (chase it + press SPACE)
+        if (st.kind === "bad" || st.kind === "good") {
+          const bad = st.kind === "bad";
+          const pulse = 0.5 + 0.3 * Math.sin(t * (bad ? 6 : 3));
+          ctx.save();
+          ctx.globalAlpha = pulse;
+          ctx.fillStyle = bad ? "#ff5d6c" : "#3ddc84";
+          ellipseRing(ctx, st.x, st.y + 16, 22, 7);
+          ctx.restore();
+        }
         if (st.opt.person) {
           drawPerson(ctx, st.x, st.y, st.opt.person, this.gender, st.opt.label, focused, used, t);
         } else {
@@ -1384,7 +1511,7 @@ export class Game {
   private renderFocusPanel(): void {
     const panel = this.ui.focusPanel;
     if (this.focusIndex < 0) {
-      panel.innerHTML = `<span class="plj-focus-title">Move with arrows / WASD</span><span class="plj-focus-desc">Walk onto a choice and press SPACE. Reach the glowing door to grow up.</span>`;
+      panel.innerHTML = `<span class="plj-focus-title">Move with arrows / WASD</span><span class="plj-focus-desc">🟢 Chase the good things and press SPACE to do them. 🔴 Dodge the bad things — they chase you! Eat well / stay fit to shrug them off. Reach the glowing door to grow up.</span>`;
       return;
     }
     const opt = this.stations[this.focusIndex].opt;
@@ -2035,6 +2162,15 @@ function effectChips(effects: Partial<Stats>): string {
         }${Math.round(v)} ${STAT_META[k].icon}</span>`
     )
     .join("");
+}
+
+/** Draw a glowing ground-ring under a moving item (good = flee, bad = chase). */
+function ellipseRing(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx: number, ry: number): void {
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = ctx.fillStyle as string;
+  ctx.lineWidth = 3;
+  ctx.stroke();
 }
 
 /** Escape user text for safe insertion into HTML (attributes + content). */
