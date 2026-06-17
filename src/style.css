@@ -162,11 +162,12 @@ body {
 .plj-stage-wrap {
   position: relative;
   width: 100%;
-  aspect-ratio: 8 / 7;
+  aspect-ratio: 640 / 700;
   border-radius: 12px;
   overflow: hidden;
   border: 2px solid var(--line);
   box-shadow: 0 6px 0 rgba(0, 0, 0, 0.35);
+  touch-action: none;
 }
 .plj-canvas {
   position: absolute;
@@ -253,13 +254,23 @@ body {
   letter-spacing: 1px;
 }
 
-/* ---- touch controls ----------------------------------------------------- */
+/* ---- touch controls (overlaid on the canvas) ---------------------------- */
 .plj-touch {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 10px;
   display: none;
   justify-content: space-between;
-  align-items: center;
-  padding: 0 6px;
+  align-items: flex-end;
+  padding: 0 12px;
+  pointer-events: none; /* taps fall through to nothing — only the buttons act */
   user-select: none;
+  z-index: 3;
+}
+.plj-dpad,
+.plj-act {
+  pointer-events: auto;
 }
 .plj-dpad {
   display: grid;
@@ -277,8 +288,8 @@ body {
 .plj-right { grid-area: right; }
 .plj-tbtn,
 .plj-act {
-  border: 2px solid var(--line);
-  background: var(--panel2);
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  background: rgba(44, 30, 84, 0.62);
   color: var(--ink);
   border-radius: 12px;
   font-size: 18px;
@@ -293,14 +304,14 @@ body {
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
 }
 .plj-act {
-  width: 82px;
-  height: 82px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
-  background: var(--pink);
+  background: rgba(255, 122, 217, 0.8);
   color: #2a0f24;
   font-size: 30px;
 }
-@media (pointer: coarse), (max-width: 560px) {
+@media (pointer: coarse), (max-width: 700px) {
   .plj-touch {
     display: flex;
   }
@@ -893,4 +904,76 @@ body {
 .plj-bio-item-btns .plj-btn {
   padding: 6px 10px;
   font-size: 13px;
+}
+
+/* ---- mobile: one full screen, no page scroll, controls on the canvas ----- */
+@media (pointer: coarse), (max-width: 700px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  #app {
+    padding: 0;
+    height: 100dvh;
+    align-items: stretch;
+  }
+  .plj-frame {
+    height: 100%;
+    max-width: 100vw;
+    margin: 0 auto;
+    gap: 5px;
+    padding: 6px;
+    justify-content: center; /* centre the game block; no wasted letterbox */
+  }
+  /* the canvas keeps its 640×700 shape, shrinking to fit if the screen is short */
+  .plj-stage-wrap {
+    flex: 0 1 auto;
+    min-height: 0;
+  }
+  .plj-canvas {
+    object-fit: contain;
+  }
+  /* trim the HUD + focus panel so the play area gets the room */
+  .plj-hud {
+    padding: 5px 9px;
+  }
+  .plj-hud-top {
+    margin-bottom: 5px;
+  }
+  .plj-bars {
+    gap: 5px;
+  }
+  .plj-bar-track {
+    height: 8px;
+  }
+  .plj-subbars {
+    margin-top: 4px;
+    padding-top: 4px;
+  }
+  .plj-focus {
+    min-height: 0;
+    padding: 6px 11px;
+  }
+  .plj-focus-title {
+    font-size: 13.5px;
+  }
+  .plj-focus-desc {
+    font-size: 11px;
+    line-height: 1.32;
+  }
+  .plj-card {
+    padding: 16px 14px;
+  }
+}
+
+/* ---- desktop: keep the (now tall) room from overflowing the window -------- */
+@media (min-width: 701px) and (pointer: fine) {
+  .plj-stage-wrap {
+    max-height: calc(100vh - 235px);
+  }
+  .plj-canvas {
+    object-fit: contain;
+  }
 }

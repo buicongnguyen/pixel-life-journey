@@ -59,14 +59,14 @@ import { createUI, type UIRefs } from "./ui";
 import { generateStory, type CauseOfEnd, type LifeStory } from "./story";
 
 const W = 640;
-const H = 560; // a tall room — lots of floor to run and dodge in
-const FLOOR_Y = 240;
+const H = 700; // a tall room with only a thin wall strip — almost all play floor
+const FLOOR_Y = 160; // less wall, much more floor to run and dodge in
 const DOOR_X = W - 74;
 const SPEED = 205; // base move speed (scaled up by your IQ — smart = nimble)
-const ROW_BACK = 320;
-const ROW_FRONT = 540;
-const PY_MIN = 295;
-const PY_MAX = 548;
+const ROW_BACK = 255;
+const ROW_FRONT = 660;
+const PY_MIN = 210;
+const PY_MAX = 685;
 // --- moving-items mechanic ---
 const GOOD_SPEED = 24; // good items drift AWAY (chase them + press to collect)
 const BAD_SPEED = 34; // bad items drift TOWARD you (auto-applied on contact)
@@ -213,7 +213,7 @@ export class Game {
   private focusIndex = -1;
 
   private px = 46;
-  private py = 420;
+  private py = 450;
   private walkPhase = 0;
   private moving = false;
   private cooldown = 0;
@@ -379,7 +379,7 @@ export class Game {
     this.usedOnce.clear();
     this.age = Math.max(this.age, s.ageStart);
     this.px = 70;
-    this.py = 420;
+    this.py = 450;
     this.focusIndex = -1;
     this.buildStations();
     this.renderFocusPanel(); // reset the panel to the default prompt on stage entry

@@ -110,12 +110,12 @@ export function createUI(mount: HTMLElement): UIRefs {
   // --- canvas ---------------------------------------------------------------
   const stage = el("div", "plj-stage-wrap");
   const canvas = el("canvas", "plj-canvas");
-  // Supersample: draw in a 640x560 coordinate space but back it with a 2× pixel
+  // Supersample: draw in a 640x700 coordinate space but back it with a 2× pixel
   // buffer, then let the browser downscale it smoothly — crisp, anti-aliased art
   // at a fraction of the fill cost (a 4× buffer made the bigger room lag).
   const SS = 2;
   canvas.width = 640 * SS;
-  canvas.height = 560 * SS;
+  canvas.height = 700 * SS;
   const ctx = canvas.getContext("2d")!;
   ctx.scale(SS, SS);
   ctx.imageSmoothingEnabled = true;
@@ -145,11 +145,14 @@ export function createUI(mount: HTMLElement): UIRefs {
   dpad.append(up, left, right, down);
   const act = el("button", "plj-act", "✓");
   touchWrap.append(dpad, act);
+  // the touch controls live INSIDE the stage so they overlay the canvas (thumbs
+  // on the game), keeping everything on one mobile screen with no page scroll
+  stage.append(touchWrap);
 
   // --- overlay --------------------------------------------------------------
   const overlay = el("div", "plj-overlay");
 
-  frame.append(hud, stage, focusPanel, touchWrap, overlay);
+  frame.append(hud, stage, focusPanel, overlay);
   mount.append(frame);
 
   return {
