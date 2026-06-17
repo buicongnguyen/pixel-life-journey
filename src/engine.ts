@@ -91,7 +91,8 @@ type Mode =
   | "biolist"
   | "bioauthor"
   | "profile"
-  | "careermove";
+  | "careermove"
+  | "settings";
 
 type StationKind = "good" | "bad" | "person" | "neutral";
 
@@ -200,6 +201,8 @@ export class Game {
   private hadChild = false;
   private biography: Biography | null = null; // set when replaying an authored life
   private editBio: Biography | null = null; // the draft being edited in the author
+  // the how-to-play guide shows once (then it's tucked away during the game)
+  private guideSeen = localStorage.getItem("plj-guide-seen-v1") === "1";
 
   private healthSum = 0;
   private happinessSum = 0;
@@ -719,6 +722,7 @@ export class Game {
       return;
     }
     this.cooldown = 0.28;
+    this.markGuideSeen();
     this.applyOption(opt);
   }
 
@@ -955,6 +959,7 @@ export class Game {
 
   private advanceStage(): void {
     if (this.mode !== "playing") return; // never advance twice in one frame
+    this.markGuideSeen();
     const cur = STAGES[this.stageIndex];
     const lines: string[] = [`You lived through your ${cur.name} years.`, ...this.lifeRecap()];
 
@@ -1442,6 +1447,7 @@ export class Game {
       this.mode === "timetravel" ||
       this.mode === "profile" ||
       this.mode === "careermove" ||
+      this.mode === "settings" ||
       this.mode === "event";
     if (inRoom && this.stageIndex < STAGES.length) {
       const s = STAGES[this.stageIndex];
@@ -1556,12 +1562,23 @@ export class Game {
     // career profile pill appears once you've started working
     const canProfile = this.mode === "playing" && this.stageIndex >= CAREER_INDEX;
     this.ui.profileBtn.style.display = canProfile ? "flex" : "none";
+    // settings + skip are available whenever you're playing; hide all the
+    // floating controls (incl. the touch pad) while a menu/overlay is open
+    const playing = this.mode === "playing";
+    this.ui.settingsBtn.style.display = playing ? "flex" : "none";
+    this.ui.skipBtn.style.display = playing ? "flex" : "none";
+    this.ui.touchWrap.style.visibility = playing ? "" : "hidden";
   }
 
   private renderFocusPanel(): void {
     const panel = this.ui.focusPanel;
     if (this.focusIndex < 0) {
-      panel.innerHTML = `<span class="plj-focus-title">Move with arrows / WASD</span><span class="plj-focus-desc">🟢 Chase the good things and press SPACE. 🔴 Bad things chase YOU — do the matching good thing and they freeze & fade (eat well → junk stops; sport or family time → screen-time stops). Smarts make you faster. Reach the glowing door to grow up.</span>`;
+      if (!this.guideSeen) {
+        panel.innerHTML = `<span class="plj-focus-title">How to play</span><span class="plj-focus-desc">🟢 Chase the good things and press ✓ / SPACE to do them. 🔴 Bad things chase YOU — do the matching good thing and they freeze & fade (eat well → junk stops; sport or family time → screen-time stops). A high IQ makes you faster. Reach the glowing door ➜ to grow up.</span>`;
+      } else {
+        // tucked away during the game — just a tiny reminder
+        panel.innerHTML = `<span class="plj-focus-title">🟢 collect&nbsp;&nbsp;·&nbsp;&nbsp;🔴 dodge&nbsp;&nbsp;·&nbsp;&nbsp;🚪 grow up</span>`;
+      }
       return;
     }
     const opt = this.stations[this.focusIndex].opt;
@@ -1592,6 +1609,55 @@ export class Game {
   private hint(text: string): void {
     this.ui.hint.textContent = text;
     this.hintTimer = 1.6;
+  }
+
+  /** The intro guide shows once, then stays tucked away (remembered across lives). */
+  private markGuideSeen(): void {
+    if (this.guideSeen) return;
+    this.guideSeen = true;
+    try {
+      localStorage.setItem("plj-guide-seen-v1", "1");
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** Skip the rest of the current chapter and grow up to the next one. */
+  private skipStage(): void {
+    if (this.mode !== "playing") return;
+    this.hint("⏭ Skipping to the next chapter…");
+    this.advanceStage();
+  }
+
+  private showSettings(): void {
+    if (this.mode !== "playing") return;
+    this.mode = "settings";
+    this.ui.overlay.innerHTML = `
+      <div class="plj-card plj-title plj-settings-card">
+        <h2>⚙️ Settings</h2>
+        <div class="plj-set-list">
+          <button class="plj-btn" id="plj-set-resume">▶ Resume</button>
+          <button class="plj-btn plj-btn-ghost" id="plj-set-skip">⏭ Skip this chapter</button>
+          <button class="plj-btn plj-btn-ghost" id="plj-set-guide">📖 Show how-to-play</button>
+          <button class="plj-btn plj-btn-ghost" id="plj-set-restart">🔄 Start a new life</button>
+          <button class="plj-btn plj-btn-ghost" id="plj-set-menu">🏠 Main menu</button>
+        </div>
+      </div>`;
+    this.ui.overlay.classList.add("show");
+    const ov = this.ui.overlay;
+    ov.querySelector<HTMLButtonElement>("#plj-set-resume")!.onclick = () => { this.mode = "playing"; this.clearOverlay(); };
+    ov.querySelector<HTMLButtonElement>("#plj-set-skip")!.onclick = () => { this.mode = "playing"; this.clearOverlay(); this.skipStage(); };
+    ov.querySelector<HTMLButtonElement>("#plj-set-guide")!.onclick = () => {
+      this.guideSeen = false;
+      try { localStorage.removeItem("plj-guide-seen-v1"); } catch { /* ignore */ }
+      this.mode = "playing";
+      this.clearOverlay();
+      this.focusIndex = -1;
+      this.renderFocusPanel();
+      this.hint("📖 The how-to-play guide is back on.");
+    };
+    ov.querySelector<HTMLButtonElement>("#plj-set-restart")!.onclick = () => this.showSetup();
+    ov.querySelector<HTMLButtonElement>("#plj-set-menu")!.onclick = () => this.showTitle();
   }
 
   // --- overlays -------------------------------------------------------------
@@ -2321,6 +2387,8 @@ export class Game {
     });
     this.ui.timeTravel.addEventListener("click", () => this.showTimeTravel());
     this.ui.profileBtn.addEventListener("click", () => this.showProfile());
+    this.ui.settingsBtn.addEventListener("click", () => this.showSettings());
+    this.ui.skipBtn.addEventListener("click", () => this.skipStage());
   }
 }
 

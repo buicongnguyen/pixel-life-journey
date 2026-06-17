@@ -24,6 +24,9 @@ export interface UIRefs {
   hint: HTMLElement;
   timeTravel: HTMLElement;
   profileBtn: HTMLElement;
+  settingsBtn: HTMLElement;
+  skipBtn: HTMLElement;
+  touchWrap: HTMLElement;
   overlay: HTMLElement;
   touch: Record<"up" | "down" | "left" | "right" | "act", HTMLElement>;
 }
@@ -126,7 +129,11 @@ export function createUI(mount: HTMLElement): UIRefs {
   timeTravel.title = "Time travel (T)";
   const profileBtn = el("button", "plj-profile-btn", "💼");
   profileBtn.title = "Career profile (P)";
-  stage.append(canvas, warn, hint, timeTravel, profileBtn);
+  const skipBtn = el("button", "plj-corner-btn plj-skip-btn", "⏭");
+  skipBtn.title = "Skip this chapter";
+  const settingsBtn = el("button", "plj-corner-btn plj-settings-btn", "⚙️");
+  settingsBtn.title = "Settings";
+  stage.append(canvas, warn, hint, timeTravel, profileBtn, skipBtn, settingsBtn);
 
   // --- bottom focus panel ---------------------------------------------------
   const focusPanel = el(
@@ -171,6 +178,9 @@ export function createUI(mount: HTMLElement): UIRefs {
     hint,
     timeTravel,
     profileBtn,
+    settingsBtn,
+    skipBtn,
+    touchWrap,
     overlay,
     touch: { up, down, left, right, act },
   };

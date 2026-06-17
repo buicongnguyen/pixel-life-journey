@@ -311,7 +311,7 @@ body {
   color: #2a0f24;
   font-size: 30px;
 }
-@media (pointer: coarse), (max-width: 700px) {
+@media (pointer: coarse), (max-width: 700px), (max-height: 620px) {
   .plj-touch {
     display: flex;
   }
@@ -540,6 +540,42 @@ body {
 }
 .plj-profile-btn:active {
   transform: translateY(2px);
+}
+/* settings + skip pills (top-right of the play area) */
+.plj-corner-btn {
+  position: absolute;
+  top: 8px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  background: rgba(34, 22, 67, 0.85);
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  z-index: 4;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+}
+.plj-corner-btn:active {
+  transform: translateY(2px);
+}
+.plj-settings-btn {
+  right: 8px;
+}
+.plj-skip-btn {
+  right: 50px;
+}
+.plj-set-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 6px;
+}
+.plj-settings-card {
+  max-width: 320px;
 }
 
 /* ---- career profile ----------------------------------------------------- */
@@ -906,8 +942,8 @@ body {
   font-size: 13px;
 }
 
-/* ---- mobile: one full screen, no page scroll, controls on the canvas ----- */
-@media (pointer: coarse), (max-width: 700px) {
+/* ---- mobile (portrait OR landscape): one full screen, controls on canvas -- */
+@media (pointer: coarse), (max-width: 700px), (max-height: 620px) {
   html,
   body {
     height: 100%;
@@ -923,22 +959,29 @@ body {
     height: 100%;
     max-width: 100vw;
     margin: 0 auto;
-    gap: 5px;
-    padding: 6px;
-    justify-content: center; /* centre the game block; no wasted letterbox */
+    gap: 4px;
+    padding: 5px;
   }
-  /* the canvas keeps its 640×700 shape, shrinking to fit if the screen is short */
-  .plj-stage-wrap {
-    flex: 0 1 auto;
-    min-height: 0;
-  }
-  .plj-canvas {
-    object-fit: contain;
-  }
-  /* trim the HUD + focus panel so the play area gets the room */
+  /* the GUIDE sits on top so the bottom is free for thumbs */
   .plj-hud {
+    order: 0;
     padding: 5px 9px;
   }
+  .plj-focus {
+    order: 1;
+  }
+  .plj-stage-wrap {
+    order: 2;
+    flex: 1 1 0; /* fill the rest — works in portrait AND landscape */
+    min-height: 0;
+    aspect-ratio: auto;
+  }
+  /* the 640×700 art fits inside, pinned high so the bottom is open for the pad */
+  .plj-canvas {
+    object-fit: contain;
+    object-position: center top;
+  }
+  /* trim the HUD + focus panel so the play area gets the room */
   .plj-hud-top {
     margin-bottom: 5px;
   }
@@ -957,11 +1000,11 @@ body {
     padding: 6px 11px;
   }
   .plj-focus-title {
-    font-size: 13.5px;
+    font-size: 13px;
   }
   .plj-focus-desc {
     font-size: 11px;
-    line-height: 1.32;
+    line-height: 1.3;
   }
   .plj-card {
     padding: 16px 14px;
@@ -969,7 +1012,7 @@ body {
 }
 
 /* ---- desktop: keep the (now tall) room from overflowing the window -------- */
-@media (min-width: 701px) and (pointer: fine) {
+@media (min-width: 701px) and (min-height: 621px) and (pointer: fine) {
   .plj-stage-wrap {
     max-height: calc(100vh - 235px);
   }
