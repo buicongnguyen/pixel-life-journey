@@ -4,7 +4,9 @@ import type {
   HouseTier,
   LifeOption,
   Occupation,
+  OptionCategory,
   Partner,
+  PersonKind,
   Stats,
   StatKey,
   VehicleTier,
@@ -40,6 +42,18 @@ import { HOUSE_TIERS } from "./houses";
 import { VEHICLES } from "./vehicles";
 import { COMMUTES, type CommuteTier } from "./commutes";
 import { EVENTS, type RandomEvent } from "./events";
+import {
+  type Biography,
+  type BioChapter,
+  listBios,
+  saveBio,
+  deleteBio,
+  getBio,
+  bioMomentCount,
+  MOMENT_PRESETS,
+  makeMoment,
+  newBiography,
+} from "./biography";
 import { avatarLook, drawAvatar, drawPerson, drawRoom, drawStation } from "./sprites";
 import { createUI, type UIRefs } from "./ui";
 import { generateStory, type CauseOfEnd, type LifeStory } from "./story";
@@ -67,7 +81,9 @@ type Mode =
   | "timetravel"
   | "event"
   | "transition"
-  | "ending";
+  | "ending"
+  | "biolist"
+  | "bioauthor";
 
 interface Station {
   x: number;
@@ -158,6 +174,8 @@ export class Game {
   private history: HistoryEntry[] = [];
   private partner: Partner | null = null;
   private hadChild = false;
+  private biography: Biography | null = null; // set when replaying an authored life
+  private editBio: Biography | null = null; // the draft being edited in the author
 
   private healthSum = 0;
   private happinessSum = 0;
@@ -279,7 +297,8 @@ export class Game {
 
   // --- lifecycle ------------------------------------------------------------
 
-  private newGame(): void {
+  private newGame(keepBiography = false): void {
+    if (!keepBiography) this.biography = null; // normal play is never a replay
     this.stats = { ...START_STATS };
     this.age = 0;
     this.weight = START_WEIGHT;
@@ -337,10 +356,11 @@ export class Game {
     this.renderFocusPanel(); // reset the panel to the default prompt on stage entry
     this.sampleHealth();
     this.timeline[i] = this.snapshot(); // capture entry state for time travel
-    if (s.isMarriage && !this.partner) {
+    // a biography replays an authored life — no occupation/marriage pickers
+    if (!this.biography && s.isMarriage && !this.partner) {
       this.mode = "partner";
       this.showPartner();
-    } else if (s.isCareer && !this.occupation) {
+    } else if (!this.biography && s.isCareer && !this.occupation) {
       this.mode = "occupation";
       this.showOccupation();
     } else {
@@ -400,8 +420,35 @@ export class Game {
     return true;
   }
 
+  /** The stations for the current chapter — a biography's moments, or the defaults. */
+  private currentOptions(): LifeOption[] {
+    const s = STAGES[this.stageIndex];
+    if (this.biography) {
+      const ch = this.biography.chapters[s.id];
+      if (ch && ch.moments.length) return ch.moments.map((m) => this.sanitizeMoment(m));
+      return []; // an authored life with nothing recorded for this chapter — a quiet time
+    }
+    return s.options.filter((o) => this.optionAvailable(o));
+  }
+
+  /** Reduce a loaded biography moment to known-safe fields (localStorage is untrusted,
+   *  so it can never carry a house/vehicle picker, a gamble, a cost or a one-off flag). */
+  private sanitizeMoment(m: LifeOption): LifeOption {
+    return {
+      id: String(m.id ?? "bm"),
+      label: String(m.label ?? "A moment"),
+      icon: String(m.icon ?? "📌"),
+      desc: String(m.desc ?? ""),
+      category: m.category ?? "special",
+      effects: m.effects && typeof m.effects === "object" ? m.effects : {},
+      ...(typeof m.earn === "number" && isFinite(m.earn) ? { earn: m.earn } : {}),
+      ...(m.person ? { person: m.person } : {}),
+      storyTag: "bio_moment",
+    };
+  }
+
   private buildStations(): void {
-    const opts = STAGES[this.stageIndex].options.filter((o) => this.optionAvailable(o));
+    const opts = this.currentOptions();
     const n = opts.length;
     const xStart = 104;
     const xEnd = W - 120;
@@ -420,6 +467,18 @@ export class Game {
   private stageStep(): number {
     const s = STAGES[this.stageIndex];
     return Math.max(0.12, Math.min(3, (s.ageEnd - s.ageStart) / 7));
+  }
+
+  /** The chapter door is open once you're old enough — or always, when replaying
+   *  a biography (so quiet/short chapters are never a dead end). */
+  private doorOpen(): boolean {
+    return !!this.biography || this.age >= STAGES[this.stageIndex].ageEnd;
+  }
+
+  private idCounter = 0;
+  /** A short unique-ish id for biographies and their moments. */
+  private uid(): string {
+    return Date.now().toString(36) + (this.idCounter++).toString(36) + Math.floor(Math.random() * 1296).toString(36);
   }
 
   /** Sample Health, Happiness and IQ each action so longevity rewards STEADY stats. */
@@ -553,7 +612,7 @@ export class Game {
     // allow pressing action near an open door to advance (handy on touch)
     const s = STAGES[this.stageIndex];
     if (this.focusIndex < 0) {
-      if (this.age >= s.ageEnd && this.px > DOOR_X - 36) this.advanceStage();
+      if (this.doorOpen() && this.px > DOOR_X - 36) this.advanceStage();
       return;
     }
 
@@ -1178,9 +1237,8 @@ export class Game {
 
     // door
     const s = STAGES[this.stageIndex];
-    const doorActive = this.age >= s.ageEnd;
     if (this.px > DOOR_X) {
-      if (doorActive) this.advanceStage();
+      if (this.doorOpen()) this.advanceStage();
       else this.hint(`Grow a little more first (age ${Math.floor(this.age)} → ${s.ageEnd}).`);
     }
     // walking through the door transitioned us — don't also run mortality
@@ -1229,7 +1287,7 @@ export class Game {
     if (inRoom && this.stageIndex < STAGES.length) {
       const s = STAGES[this.stageIndex];
       const t = this.walkPhase;
-      const doorActive = this.age >= s.ageEnd;
+      const doorActive = this.doorOpen();
       drawRoom(ctx, s.theme, W, H, FLOOR_Y, doorActive, t, {
         scene: s.scene,
         atHome: !!s.atHome,
@@ -1302,8 +1360,15 @@ export class Game {
     this.ui.moneyLabel.textContent = `💰 ${formatMoney(this.money)}`;
 
     const s = STAGES[Math.min(this.stageIndex, STAGES.length - 1)];
-    const occ = this.occupation ? ` · ${this.occupation.emoji} ${this.occupation.name}` : "";
-    this.ui.stageLabel.textContent = `${s.emoji} ${s.name}${occ}`;
+    if (this.biography) {
+      // a biography shows the (custom) chapter title and whose life it is
+      const ch = this.biography.chapters[s.id];
+      const title = ch?.title?.trim() || s.name;
+      this.ui.stageLabel.textContent = `${s.emoji} ${title} · 📖 ${this.biography.name || "A life"}`;
+    } else {
+      const occ = this.occupation ? ` · ${this.occupation.emoji} ${this.occupation.name}` : "";
+      this.ui.stageLabel.textContent = `${s.emoji} ${s.name}${occ}`;
+    }
     this.ui.ageLabel.textContent = String(Math.floor(this.age));
     this.ui.leLabel.textContent =
       this.mode === "title" || this.mode === "setup" ? "" : ` · ~${this.lifeExp()}y`;
@@ -1312,7 +1377,7 @@ export class Game {
         ? "block"
         : "none";
     // time-travel pill appears once you have a past worth revisiting
-    const canRewind = this.mode === "playing" && this.timeline.filter(Boolean).length > 1;
+    const canRewind = this.mode === "playing" && !this.biography && this.timeline.filter(Boolean).length > 1;
     this.ui.timeTravel.style.display = canRewind ? "flex" : "none";
   }
 
@@ -1342,8 +1407,8 @@ export class Game {
       ? `<b class="plj-press" style="background:#5a2a33;color:#ffc4c4">💸 can't afford</b>`
       : `<b class="plj-press">SPACE</b>`;
     panel.innerHTML =
-      `<span class="plj-focus-title">${opt.icon} ${opt.label}</span>` +
-      `<span class="plj-focus-desc">${opt.desc}</span>` +
+      `<span class="plj-focus-title">${opt.icon} ${esc(opt.label)}</span>` +
+      `<span class="plj-focus-desc">${esc(opt.desc)}</span>` +
       `<span class="plj-chips">${effectChips(opt.effects)}${extra.join("")}${press}</span>`;
   }
 
@@ -1360,24 +1425,37 @@ export class Game {
   }
 
   private showTitle(): void {
+    this.mode = "title";
+    this.biography = null;
     const meters = STAT_KEYS.map(
       (k) => `<span class="plj-meter-key"><b style="color:${STAT_META[k].color}">${STAT_META[k].icon}</b> ${STAT_META[k].label}</span>`
     ).join("");
+    const bioCount = listBios().length;
     this.ui.overlay.innerHTML = `
       <div class="plj-card plj-title">
         <h1>Pixel Life <span>Journey</span></h1>
         <p class="plj-sub">Live a whole life — from your first bottle of milk to your last sunset.</p>
         <div class="plj-meters">${meters}</div>
-        <p class="plj-rules">Walk through 12 rooms, one for each stage of life. Every choice shifts your meters and ages you. Keep your <b>health</b> up or your life runs short. Chase money too hard and your joy, fun and health pay the price. At the end, read the story of the life you lived.</p>
+        <p class="plj-rules">Walk through 12 rooms, one for each stage of life. Every choice shifts your meters and ages you — or tell a <b>real</b> life story in <b>Biography</b> mode.</p>
         <button class="plj-btn" id="plj-start">Begin your life →</button>
+        <div class="plj-title-row">
+          <button class="plj-btn plj-btn-ghost" id="plj-bio-write">✍️ Write a biography</button>
+          <button class="plj-btn plj-btn-ghost" id="plj-bio-list">📖 Biographies${bioCount ? ` (${bioCount})` : ""}</button>
+        </div>
         <p class="plj-foot">Arrows / WASD to move · SPACE to choose · or use the on-screen pad</p>
       </div>`;
     this.ui.overlay.classList.add("show");
     this.ui.overlay.querySelector<HTMLButtonElement>("#plj-start")!.onclick = () => this.showSetup();
+    this.ui.overlay.querySelector<HTMLButtonElement>("#plj-bio-write")!.onclick = () => {
+      this.editBio = newBiography(this.uid(), "male");
+      this.showBioAuthor();
+    };
+    this.ui.overlay.querySelector<HTMLButtonElement>("#plj-bio-list")!.onclick = () => this.showBioList();
   }
 
   private showSetup(): void {
     this.mode = "setup";
+    this.biography = null;
     this.ui.overlay.innerHTML = `
       <div class="plj-card plj-title">
         <h2>A new life begins…</h2>
@@ -1395,6 +1473,223 @@ export class Game {
         this.newGame();
       };
     });
+  }
+
+  // --- biography mode -------------------------------------------------------
+
+  /** Start replaying an authored (or recorded) life. */
+  private startBiographyPlay(bio: Biography): void {
+    this.biography = bio;
+    this.gender = bio.gender;
+    this.newGame(true); // keep the biography; loadStage(0) builds its moments
+  }
+
+  private showBioList(): void {
+    this.mode = "biolist";
+    const bios = listBios();
+    const items = bios.length
+      ? bios.map((b) => `
+        <div class="plj-bio-item">
+          <div class="plj-bio-item-main">
+            <span class="plj-bio-item-name">${b.gender === "female" ? "👧" : "👦"} ${esc(b.name || "Untitled life")}</span>
+            <span class="plj-bio-item-sub">${esc(b.subtitle || "")}${b.subtitle ? " · " : ""}${bioMomentCount(b)} moments</span>
+          </div>
+          <div class="plj-bio-item-btns">
+            <button class="plj-btn plj-bio-play2" data-id="${b.id}">▶ Play</button>
+            <button class="plj-btn plj-btn-ghost plj-bio-edit" data-id="${b.id}" title="Edit">✎</button>
+            <button class="plj-btn plj-btn-ghost plj-bio-del2" data-id="${b.id}" title="Delete">🗑</button>
+          </div>
+        </div>`).join("")
+      : `<p class="plj-sub">No biographies yet. Write one — or live a life and save it at the end.</p>`;
+    this.ui.overlay.innerHTML = `
+      <div class="plj-card plj-bio-list">
+        <h2>📖 Biographies</h2>
+        <div class="plj-bio-items">${items}</div>
+        <div class="plj-title-row">
+          <button class="plj-btn plj-btn-ghost" id="plj-bio-back2">← Menu</button>
+          <button class="plj-btn" id="plj-bio-new">✍️ Write new</button>
+        </div>
+      </div>`;
+    this.ui.overlay.classList.add("show");
+    const ov = this.ui.overlay;
+    ov.querySelectorAll<HTMLButtonElement>(".plj-bio-play2").forEach((b) => {
+      b.onclick = () => { const bio = getBio(b.dataset.id!); if (bio) this.startBiographyPlay(bio); };
+    });
+    ov.querySelectorAll<HTMLButtonElement>(".plj-bio-edit").forEach((b) => {
+      b.onclick = () => { const bio = getBio(b.dataset.id!); if (bio) { this.editBio = bio; this.showBioAuthor(); } };
+    });
+    ov.querySelectorAll<HTMLButtonElement>(".plj-bio-del2").forEach((b) => {
+      b.onclick = () => { deleteBio(b.dataset.id!); this.showBioList(); };
+    });
+    ov.querySelector<HTMLButtonElement>("#plj-bio-back2")!.onclick = () => this.showTitle();
+    ov.querySelector<HTMLButtonElement>("#plj-bio-new")!.onclick = () => { this.editBio = newBiography(this.uid(), "male"); this.showBioAuthor(); };
+  }
+
+  /** Read the author's text fields back into the draft before any re-render. */
+  private syncBioFields(): void {
+    const b = this.editBio;
+    if (!b) return;
+    const ov = this.ui.overlay;
+    const name = ov.querySelector<HTMLInputElement>("#plj-bio-name");
+    if (name) b.name = name.value;
+    const sub = ov.querySelector<HTMLInputElement>("#plj-bio-sub");
+    if (sub) b.subtitle = sub.value;
+    ov.querySelectorAll<HTMLInputElement>(".plj-bio-title").forEach((inp) => {
+      const sid = inp.dataset.stage!;
+      const v = inp.value.trim();
+      if (v) {
+        if (!b.chapters[sid]) b.chapters[sid] = { moments: [] };
+        b.chapters[sid].title = v;
+      } else if (b.chapters[sid]) {
+        b.chapters[sid].title = undefined;
+      }
+    });
+  }
+
+  private showBioAuthor(): void {
+    this.mode = "bioauthor";
+    const b = this.editBio!;
+    const presetOpts = MOMENT_PRESETS.map((p) => `<option value="${p.key}">${p.emoji} ${p.label}</option>`).join("");
+    const chapters = STAGES.map((s) => {
+      const ch = b.chapters[s.id] ?? { moments: [] };
+      const moments = ch.moments.length
+        ? ch.moments.map((m, i) => `
+          <div class="plj-bio-moment">
+            <span>${m.icon} ${esc(m.desc)}</span>
+            <button class="plj-bio-del" data-stage="${s.id}" data-i="${i}">✕</button>
+          </div>`).join("")
+        : `<div class="plj-bio-empty">— a quiet chapter —</div>`;
+      return `
+        <details class="plj-bio-chapter">
+          <summary><span class="plj-bio-ch-emoji">${s.emoji}</span><input class="plj-bio-title" data-stage="${s.id}" value="${esc(ch.title ?? "")}" placeholder="${esc(s.name)}"><span class="plj-bio-age">${s.ageStart}+</span></summary>
+          <div class="plj-bio-moments">${moments}</div>
+          <div class="plj-bio-add">
+            <input class="plj-bio-text" data-stage="${s.id}" placeholder="What happened? e.g. 'Born in Hanoi'" maxlength="80">
+            <select class="plj-bio-preset" data-stage="${s.id}">${presetOpts}</select>
+            <button class="plj-btn plj-bio-addbtn" data-stage="${s.id}">+ Add</button>
+          </div>
+        </details>`;
+    }).join("");
+    this.ui.overlay.innerHTML = `
+      <div class="plj-card plj-bio-author">
+        <h2>✍️ ${b.createdAt ? "Edit biography" : "Write a biography"}</h2>
+        <div class="plj-bio-head">
+          <input id="plj-bio-name" placeholder="Whose life? (a name)" value="${esc(b.name)}" maxlength="40">
+          <input id="plj-bio-sub" placeholder="Subtitle — e.g. 'My grandfather · 1938–2016'" value="${esc(b.subtitle)}" maxlength="60">
+          <div class="plj-genders plj-genders-sm">
+            <button class="plj-gender${b.gender === "male" ? " sel" : ""}" data-g="male">👦 Boy</button>
+            <button class="plj-gender${b.gender === "female" ? " sel" : ""}" data-g="female">👧 Girl</button>
+          </div>
+        </div>
+        <p class="plj-sub">Add the moments that happened in each chapter — pick a feeling, write what happened. Then play it to walk through their life.</p>
+        <div class="plj-bio-chapters">${chapters}</div>
+        <div class="plj-title-row">
+          <button class="plj-btn plj-btn-ghost" id="plj-bio-back">← Save & back</button>
+          <button class="plj-btn" id="plj-bio-play">▶ Save & play</button>
+        </div>
+      </div>`;
+    this.ui.overlay.classList.add("show");
+    const ov = this.ui.overlay;
+    ov.querySelectorAll<HTMLButtonElement>(".plj-gender").forEach((btn) => {
+      btn.onclick = () => { this.syncBioFields(); b.gender = btn.dataset.g === "female" ? "female" : "male"; this.showBioAuthor(); };
+    });
+    ov.querySelectorAll<HTMLButtonElement>(".plj-bio-addbtn").forEach((btn) => {
+      btn.onclick = () => {
+        this.syncBioFields();
+        const sid = btn.dataset.stage!;
+        const text = ov.querySelector<HTMLInputElement>(`.plj-bio-text[data-stage="${sid}"]`)?.value.trim() ?? "";
+        const key = ov.querySelector<HTMLSelectElement>(`.plj-bio-preset[data-stage="${sid}"]`)?.value ?? "memory";
+        if (!text) { this.flashBioHint(); return; }
+        if (!b.chapters[sid]) b.chapters[sid] = { moments: [] };
+        b.chapters[sid].moments.push(makeMoment(this.uid(), text, key));
+        this.showBioAuthor();
+      };
+    });
+    ov.querySelectorAll<HTMLButtonElement>(".plj-bio-del").forEach((btn) => {
+      btn.onclick = () => {
+        this.syncBioFields();
+        const sid = btn.dataset.stage!;
+        const i = Number(btn.dataset.i);
+        b.chapters[sid]?.moments.splice(i, 1);
+        this.showBioAuthor();
+      };
+    });
+    ov.querySelector<HTMLButtonElement>("#plj-bio-back")!.onclick = () => { this.persistDraft(); this.showBioList(); };
+    ov.querySelector<HTMLButtonElement>("#plj-bio-play")!.onclick = () => {
+      this.persistDraft();
+      this.startBiographyPlay(this.editBio!);
+    };
+  }
+
+  private flashBioHint(): void {
+    const el = this.ui.overlay.querySelector<HTMLElement>(".plj-bio-author > .plj-sub");
+    if (el) { el.textContent = "✏️ Write what happened first, then press + Add."; el.style.color = "#ffd27a"; }
+  }
+
+  /** Stamp + save the draft being edited. */
+  private persistDraft(): void {
+    this.syncBioFields();
+    const b = this.editBio;
+    if (!b) return;
+    if (!b.name.trim()) b.name = "Someone";
+    if (!b.createdAt) b.createdAt = Date.now();
+    saveBio(b);
+  }
+
+  // --- recording a played life into a biography -----------------------------
+
+  private cleanMoment(label: string, icon: string, desc: string, category: OptionCategory, effects: Partial<Stats>, earn?: number, person?: PersonKind): LifeOption {
+    return {
+      id: "bm_" + this.uid(),
+      label,
+      icon,
+      desc,
+      category,
+      effects: { ...effects },
+      ...(earn ? { earn } : {}),
+      ...(person ? { person } : {}),
+      storyTag: "bio_moment",
+    };
+  }
+
+  /** Turn one recorded choice into a clean, replayable moment. */
+  private historyEntryToMoment(h: HistoryEntry): LifeOption | null {
+    const stage = STAGES.find((s) => s.id === h.stageId);
+    const opt = stage?.options.find((o) => o.id === h.optionId);
+    if (opt) return this.cleanMoment(opt.label, opt.icon, opt.desc, opt.category, opt.effects, opt.earn, opt.person);
+    if (h.optionId.startsWith("job_")) {
+      const o = OCCUPATIONS.find((x) => "job_" + x.id === h.optionId);
+      if (o) return this.cleanMoment(`Became a ${o.name}`, o.emoji, `Worked as a ${o.name.toLowerCase()}.`, "wealth", { happiness: 3 });
+    }
+    if (h.optionId.startsWith("wed_")) {
+      const p = PARTNERS.find((x) => "wed_" + x.id === h.optionId);
+      if (p) return this.cleanMoment(`Married ${p.name}`, "💍", `Married ${p.name}, ${p.title}.`, "social", { happiness: 10, health: 2 });
+    }
+    if (h.optionId.startsWith("house_")) {
+      const ht = HOUSE_TIERS.find((x) => "house_" + x.id === h.optionId);
+      if (ht) return this.cleanMoment(`Bought a ${ht.name.toLowerCase()}`, ht.emoji, `Settled into a ${ht.name.toLowerCase()}.`, "special", { happiness: ht.happiness });
+    }
+    if (h.optionId.startsWith("veh_")) {
+      const v = VEHICLES.find((x) => "veh_" + x.id === h.optionId);
+      if (v) return this.cleanMoment(`Got a ${v.name.toLowerCase()}`, v.emoji, `Bought a ${v.name.toLowerCase()}.`, "fun", v.effects);
+    }
+    if (h.optionId.startsWith("commute_")) {
+      const c = COMMUTES.find((x) => "commute_" + x.id === h.optionId);
+      if (c) return this.cleanMoment(c.name, c.emoji, c.blurb, "special", c.effects);
+    }
+    return null;
+  }
+
+  /** Build a replayable biography from the life that was just lived. */
+  private buildBioFromPlaythrough(name: string, subtitle: string): Biography {
+    const chapters: Record<string, BioChapter> = {};
+    for (const h of this.history) {
+      const m = this.historyEntryToMoment(h);
+      if (!m) continue;
+      if (!chapters[h.stageId]) chapters[h.stageId] = { moments: [] };
+      chapters[h.stageId].moments.push(m);
+    }
+    return { id: "bio_" + this.uid(), name: name.trim() || "My life", gender: this.gender, subtitle: subtitle.trim(), chapters, createdAt: Date.now() };
   }
 
   private showTransition(lines: string[]): void {
@@ -1580,7 +1875,7 @@ export class Game {
   }
 
   private showTimeTravel(): void {
-    if (this.mode !== "playing") return;
+    if (this.mode !== "playing" || this.biography) return;
     const past: { snap: Snapshot; i: number }[] = [];
     this.timeline.forEach((snap, i) => {
       if (snap && i <= this.stageIndex) past.push({ snap, i });
@@ -1638,16 +1933,54 @@ export class Game {
     const summary = STAT_KEYS.map(
       (k) => `<span class="plj-end-stat"><b style="color:${STAT_META[k].color}">${STAT_META[k].icon}</b> ${Math.round(this.stats[k])}</span>`
     ).join("") + `<span class="plj-end-stat"><b style="color:#3ddc84">💰</b> ${formatMoney(this.netWorth())}</span>`;
+    // a freshly LIVED life (not a replay) can be saved as a replayable biography
+    const recordBtn = this.biography ? "" : `<button class="plj-btn plj-btn-ghost" id="plj-record">💾 Save as a biography</button>`;
+    const bioHead = this.biography
+      ? `<p class="plj-sub" style="margin-top:-6px">📖 ${esc(this.biography.name || "A life")}${this.biography.subtitle ? " · " + esc(this.biography.subtitle) : ""}</p>`
+      : "";
     this.ui.overlay.innerHTML = `
       <div class="plj-card plj-end">
         <h2>${story.title}</h2>
+        ${bioHead}
         <p class="plj-epitaph">“${story.epitaph}”</p>
         <div class="plj-story">${story.paragraphs.map((p) => `<p>${p}</p>`).join("")}</div>
         <div class="plj-end-stats">${summary}</div>
-        <button class="plj-btn" id="plj-restart">Live another life ↺</button>
+        <div class="plj-title-row">
+          <button class="plj-btn" id="plj-restart">Live another life ↺</button>
+          ${recordBtn}
+        </div>
       </div>`;
     this.ui.overlay.classList.add("show");
-    this.ui.overlay.querySelector<HTMLButtonElement>("#plj-restart")!.onclick = () => this.newGame();
+    this.ui.overlay.querySelector<HTMLButtonElement>("#plj-restart")!.onclick = () => this.showTitle();
+    const rec = this.ui.overlay.querySelector<HTMLButtonElement>("#plj-record");
+    if (rec) rec.onclick = () => this.showRecordForm();
+  }
+
+  /** A little form to name + save the life you just lived as a biography. */
+  private showRecordForm(): void {
+    this.ui.overlay.innerHTML = `
+      <div class="plj-card plj-title">
+        <h2>💾 Save this life</h2>
+        <p class="plj-sub">Give it a name and it becomes a biography you can replay and share.</p>
+        <div class="plj-bio-head">
+          <input id="plj-rec-name" placeholder="Whose life was this? (a name)" maxlength="40">
+          <input id="plj-rec-sub" placeholder="Subtitle (optional)" maxlength="60">
+        </div>
+        <div class="plj-title-row">
+          <button class="plj-btn plj-btn-ghost" id="plj-rec-cancel">← Back</button>
+          <button class="plj-btn" id="plj-rec-save">💾 Save biography</button>
+        </div>
+      </div>`;
+    const ov = this.ui.overlay;
+    ov.querySelector<HTMLButtonElement>("#plj-rec-cancel")!.onclick = () => this.showEnding();
+    ov.querySelector<HTMLButtonElement>("#plj-rec-save")!.onclick = () => {
+      const name = ov.querySelector<HTMLInputElement>("#plj-rec-name")?.value ?? "";
+      const sub = ov.querySelector<HTMLInputElement>("#plj-rec-sub")?.value ?? "";
+      const bio = this.buildBioFromPlaythrough(name, sub);
+      saveBio(bio);
+      this.editBio = bio;
+      this.showBioList();
+    };
   }
 
   // --- input ----------------------------------------------------------------
@@ -1702,6 +2035,11 @@ function effectChips(effects: Partial<Stats>): string {
         }${Math.round(v)} ${STAT_META[k].icon}</span>`
     )
     .join("");
+}
+
+/** Escape user text for safe insertion into HTML (attributes + content). */
+function esc(s: string): string {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
 }
 
 /** A normally-distributed sample (Box–Muller), used to roll IQ potential at birth. */

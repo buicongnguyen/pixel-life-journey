@@ -112,12 +112,21 @@ the same habits that help in real life:
 See [`DESIGN.md`](DESIGN.md) for the full balance model, the life-stage graph, every
 option's effects, and the sources.
 
-## 🗺️ Coming next
+## 📖 Biography mode
 
-A **Biography mode**: a guided author flow to recreate a real person's life (name,
-gender, and the choices that actually happened at each stage), plus the ability to add
-your own custom stages and items — so you can record and replay it as the **biography of
-a grandparent, parent, or yourself** to share with family.
+The game is also a little tool for telling **real** life stories. From the title screen:
+
+- **✍️ Write a biography** — name the person, pick boy/girl, add a subtitle, then for each
+  of the twelve life chapters give it your own title and add the **moments that actually
+  happened** ("Born in Hanoi", "Joined the army", "Became a teacher"…). Each moment is a
+  feeling (joyful, hard time, learned, family, earned money…) plus your own words.
+- **▶ Play a biography** — walk their life chapter by chapter, the moments laid out as the
+  rooms' stations, the character matching their gender, the chapter titles in the HUD.
+- **💾 Record a life** — at the end of any normal playthrough, save it as a biography to
+  replay later. Your real choices become the moments.
+
+Everything is saved in your browser (`localStorage`), so you can keep and re-live the
+**biography of a grandparent, parent, or yourself** and share the link with family.
 
 ---
 

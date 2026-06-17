@@ -611,3 +611,179 @@ body {
 .plj-event .plj-chips {
   margin-bottom: 14px;
 }
+
+/* --- biography mode ------------------------------------------------------- */
+.plj-title-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 10px;
+}
+.plj-genders-sm {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+.plj-genders-sm .plj-gender {
+  flex-direction: row;
+  gap: 5px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+.plj-gender.sel {
+  border-color: var(--accent, #ff8fd0);
+  background: rgba(255, 143, 208, 0.16);
+  box-shadow: 0 0 0 2px rgba(255, 143, 208, 0.25);
+}
+.plj-bio-author,
+.plj-bio-list {
+  max-width: 540px;
+  width: 92%;
+  max-height: 86vh;
+  overflow-y: auto;
+  text-align: left;
+}
+.plj-bio-author h2,
+.plj-bio-list h2 {
+  text-align: center;
+}
+.plj-bio-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0;
+}
+.plj-bio-head input,
+.plj-bio-add input,
+.plj-bio-add select,
+.plj-bio-title {
+  background: #160f2c;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.plj-bio-chapters {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+.plj-bio-chapter {
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+.plj-bio-chapter > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+}
+.plj-bio-chapter > summary::-webkit-details-marker {
+  display: none;
+}
+.plj-bio-ch-emoji {
+  font-size: 16px;
+}
+.plj-bio-title {
+  flex: 1;
+  font-weight: 700;
+}
+.plj-bio-age {
+  font-size: 11px;
+  color: var(--muted);
+}
+.plj-bio-moments {
+  margin: 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.plj-bio-moment {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 7px;
+  padding: 5px 9px;
+  font-size: 13px;
+}
+.plj-bio-empty {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: italic;
+  padding: 2px 4px;
+}
+.plj-bio-del {
+  background: none;
+  border: none;
+  color: #ff8a8a;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 4px;
+}
+.plj-bio-add {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.plj-bio-add input {
+  flex: 1 1 150px;
+}
+.plj-bio-add select {
+  flex: 1 1 120px;
+}
+.plj-bio-addbtn {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.plj-bio-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0;
+}
+.plj-bio-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.plj-bio-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.plj-bio-item-name {
+  font-weight: 700;
+}
+.plj-bio-item-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+.plj-bio-item-btns {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.plj-bio-item-btns .plj-btn {
+  padding: 6px 10px;
+  font-size: 13px;
+}
