@@ -86,20 +86,22 @@ body {
 .plj-bars {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
+  gap: 6px 10px;
 }
+/* each meter on ONE line: symbol · bar · number — compact, saves vertical space */
 .plj-bar {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
 }
 .plj-bar-icon {
   font-size: 13px;
   line-height: 1;
+  flex: 0 0 auto;
 }
 .plj-bar-track {
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   height: 9px;
   background: #160f2c;
   border: 1px solid var(--line);
@@ -116,6 +118,10 @@ body {
   font-size: 11px;
   color: var(--muted);
   font-weight: 700;
+  flex: 0 0 auto;
+  min-width: 20px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 /* the three Health pillars — a smaller sub-row under the main meters */
 .plj-subbars {
@@ -162,7 +168,7 @@ body {
 .plj-stage-wrap {
   position: relative;
   width: 100%;
-  aspect-ratio: 640 / 700;
+  aspect-ratio: 640 / 800;
   border-radius: 12px;
   overflow: hidden;
   border: 2px solid var(--line);

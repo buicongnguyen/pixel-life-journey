@@ -182,12 +182,17 @@ export function moneyVerdict(money: number): "poor" | "ok" | "good" | "great" {
 export function formatMoney(m: number): string {
   const neg = m < 0;
   const a = Math.abs(Math.round(m));
+  const sign = neg ? "-$" : "$";
+  // 1 decimal below 10× a unit, none above (e.g. $1.3M, $12M). The tier
+  // thresholds sit at 999,500 / 999,500,000 so a value that would ROUND up to
+  // "1000k" / "1000M" promotes to the next unit ("$1.0M" / "$1.0B") instead.
+  const fmt = (v: number) => (v < 10 ? v.toFixed(1) : Math.round(v).toString());
   let s: string;
-  if (a >= 1e9) s = (a / 1e9).toFixed(a >= 1e10 ? 0 : 1) + "B";
-  else if (a >= 1e6) s = (a / 1e6).toFixed(a >= 1e7 ? 0 : 1) + "M";
+  if (a >= 9.995e8) s = fmt(a / 1e9) + "B";
+  else if (a >= 9.995e5) s = fmt(a / 1e6) + "M";
   else if (a >= 1e4) s = Math.round(a / 1e3) + "k";
   else s = a.toLocaleString("en-US");
-  return (neg ? "-$" : "$") + s;
+  return sign + s;
 }
 
 // --- Body weight ------------------------------------------------------------

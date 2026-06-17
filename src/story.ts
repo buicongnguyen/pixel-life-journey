@@ -300,7 +300,6 @@ function partnerLine(p: Partner): string {
   const key = top?.[0];
   const map: Record<string, string> = {
     health: "They kept you healthy and active for years.",
-    wealth: "They helped build a comfortable life.",
     fun: "They filled your days with colour and adventure.",
     happiness: "They brought you steady, lasting happiness.",
     smarts: "They made you and your family a little wiser.",

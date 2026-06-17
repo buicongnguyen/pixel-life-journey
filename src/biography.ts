@@ -29,10 +29,45 @@ export interface Biography {
 
 const KEY = "plj-biographies-v1";
 
+/**
+ * Coerce one loaded biography into a guaranteed-valid shape. localStorage is
+ * untrusted (entries can be hand-edited, imported/shared between people, or left
+ * over from an older schema), so every consumer — bioMomentCount, the replay path
+ * and the author view — must be able to assume `chapters` is a plain object and
+ * every `chapter.moments` is an array of objects, or they throw uncaught. Field
+ * values are still HTML-escaped at the render sinks; this only fixes the SHAPE.
+ */
+function normalizeBio(b: unknown): Biography | null {
+  if (!b || typeof b !== "object") return null;
+  const o = b as Record<string, unknown>;
+  const srcChapters =
+    o.chapters && typeof o.chapters === "object" && !Array.isArray(o.chapters)
+      ? (o.chapters as Record<string, unknown>)
+      : {};
+  const chapters: Record<string, BioChapter> = {};
+  for (const k of Object.keys(srcChapters)) {
+    const c = srcChapters[k] as Record<string, unknown> | null;
+    const moments =
+      c && Array.isArray(c.moments)
+        ? (c.moments.filter((m) => m && typeof m === "object") as LifeOption[])
+        : [];
+    chapters[k] = { ...(c && typeof c.title === "string" ? { title: c.title } : {}), moments };
+  }
+  return {
+    id: String(o.id ?? ""),
+    name: String(o.name ?? ""),
+    gender: o.gender === "female" ? "female" : "male",
+    subtitle: String(o.subtitle ?? ""),
+    chapters,
+    createdAt: Number(o.createdAt) || 0,
+  };
+}
+
 export function listBios(): Biography[] {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) || "[]");
-    return Array.isArray(raw) ? raw : [];
+    if (!Array.isArray(raw)) return [];
+    return raw.map(normalizeBio).filter((b): b is Biography => b !== null);
   } catch {
     return [];
   }

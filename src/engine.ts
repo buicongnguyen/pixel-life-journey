@@ -59,14 +59,14 @@ import { createUI, type UIRefs } from "./ui";
 import { generateStory, type CauseOfEnd, type LifeStory } from "./story";
 
 const W = 640;
-const H = 700; // a tall room with only a thin wall strip — almost all play floor
+const H = 800; // a tall room with only a thin wall strip — almost all play floor
 const FLOOR_Y = 160; // less wall, much more floor to run and dodge in
 const DOOR_X = W - 74;
 const SPEED = 205; // base move speed (scaled up by your IQ — smart = nimble)
 const ROW_BACK = 255;
-const ROW_FRONT = 660;
+const ROW_FRONT = 752;
 const PY_MIN = 210;
-const PY_MAX = 685;
+const PY_MAX = 782;
 // --- moving-items mechanic ---
 const GOOD_SPEED = 24; // good items drift AWAY (chase them + press to collect)
 const BAD_SPEED = 34; // bad items drift TOWARD you (auto-applied on contact)
@@ -99,8 +99,6 @@ type StationKind = "good" | "bad" | "person" | "neutral";
 interface Station {
   x: number;
   y: number;
-  vx: number;
-  vy: number;
   opt: LifeOption;
   kind: StationKind;
   /** For bad items: which good category satiates it (diet = food, fit = activity). */
@@ -138,6 +136,7 @@ interface Snapshot {
   iqCeiling: number;
   geneBonus: number;
   owned: string[];
+  jobsTaken: string[];
   usedEvents: string[];
   bigFired: boolean;
   jackpotFired: boolean;
@@ -186,6 +185,7 @@ export class Game {
   private geneBonus = 0; // longevity genetics (-5..+5 yrs), rolled at birth
   private familyBond = 0; // time invested in family — unlocks grandkids later
   private owned = new Set<string>(); // one-off, owned-for-life purchases (vehicles, skills)
+  private jobsTaken = new Set<string>(); // occupations whose one-off perks were already granted this life
   private bigFired = false; // a "big" windfall already happened (1/life)
   private jackpotFired = false; // a jackpot already happened (1/life total)
   private petAdopted = false; // adopted a pet (1/life)
@@ -195,7 +195,6 @@ export class Game {
   private usedEvents = new Set<string>();
   private eventsLog: string[] = [];
   private timeline: Snapshot[] = [];
-  private pendingHouseOptId: string | null = null;
   private history: HistoryEntry[] = [];
   private partner: Partner | null = null;
   private hadChild = false;
@@ -226,8 +225,6 @@ export class Game {
   private transitionNext = 0;
 
   private story: LifeStory | null = null;
-  private deathAge = 0;
-  private cause: CauseOfEnd = "natural";
 
   private input = { left: false, right: false, up: false, down: false };
   private actQueued = false;
@@ -353,6 +350,7 @@ export class Game {
     this.lifetimeEarned = 0;
     this.connections = 0;
     this.owned = new Set();
+    this.jobsTaken = new Set();
     this.bigFired = false;
     this.jackpotFired = false;
     this.petAdopted = false;
@@ -362,7 +360,6 @@ export class Game {
     this.usedEvents = new Set();
     this.eventsLog = [];
     this.timeline = [];
-    this.pendingHouseOptId = null;
     this.history = [];
     this.partner = null;
     this.hadChild = false;
@@ -376,18 +373,23 @@ export class Game {
     this.loadStage(0);
   }
 
-  private loadStage(i: number): void {
+  private loadStage(i: number, restoring = false): void {
     this.stageIndex = i;
     const s = STAGES[i];
     this.usedOnce.clear();
     this.age = Math.max(this.age, s.ageStart);
     this.px = 70;
-    this.py = 450;
+    this.py = 500;
     this.focusIndex = -1;
     this.buildStations();
     this.renderFocusPanel(); // reset the panel to the default prompt on stage entry
-    this.sampleHealth();
-    this.timeline[i] = this.snapshot(); // capture entry state for time travel
+    // On a rewind the running averages + entry snapshot were just restored from
+    // timeline[i] (which already counts this entry's sample) — re-sampling and
+    // re-snapshotting here would double-count it and drift life expectancy.
+    if (!restoring) {
+      this.sampleHealth();
+      this.timeline[i] = this.snapshot(); // capture entry state for time travel
+    }
     // a biography replays an authored life — no occupation/marriage pickers
     if (!this.biography && s.isMarriage && !this.partner) {
       this.mode = "partner";
@@ -428,6 +430,7 @@ export class Game {
       iqCeiling: this.iqCeiling,
       geneBonus: this.geneBonus,
       owned: [...this.owned],
+      jobsTaken: [...this.jobsTaken],
       bigFired: this.bigFired,
       jackpotFired: this.jackpotFired,
       petAdopted: this.petAdopted,
@@ -507,8 +510,6 @@ export class Game {
       return {
         x: n === 1 ? (xStart + xEnd) / 2 : xStart + ((xEnd - xStart) * i) / (n - 1),
         y: rows[i % 3],
-        vx: 0,
-        vy: 0,
         opt,
         kind: c.kind,
         guard: c.guard,
@@ -551,10 +552,6 @@ export class Game {
     this.happinessSum += this.stats.happiness;
     this.smartsSum += this.stats.smarts;
     this.healthCount += 1;
-  }
-
-  private avgHealth(): number {
-    return this.healthCount ? this.healthSum / this.healthCount : this.stats.health;
   }
 
   /** Life expectancy from the running averages of Health, Happiness and IQ (+ genes). */
@@ -693,7 +690,6 @@ export class Game {
 
     // buying a house / vehicle opens a picker instead of applying a normal action
     if (opt.opensHousePicker) {
-      this.pendingHouseOptId = opt.id;
       this.mode = "house";
       this.showHouse();
       return;
@@ -1042,8 +1038,6 @@ export class Game {
 
   private finishLife(cause: CauseOfEnd, deathAge: number): void {
     if (this.mode === "ending") return; // idempotent — only die once
-    this.cause = cause;
-    this.deathAge = deathAge;
     this.story = generateStory({
       history: this.history,
       finalStats: this.stats,
@@ -1086,7 +1080,8 @@ export class Game {
 
   private pickOccupation(o: Occupation): void {
     this.occupation = o;
-    if (o.perks) this.applyEff(o.perks, "split");
+    if (o.perks && !this.jobsTaken.has(o.id)) this.applyEff(o.perks, "split");
+    this.jobsTaken.add(o.id);
     this.history.push({
       stageId: "career",
       stageName: "Career",
@@ -1116,7 +1111,6 @@ export class Game {
     this.applyEff({ happiness: h.happiness });
     this.homes.push(h);
     this.recomputeHomes();
-    this.pendingHouseOptId = null;
     this.age += this.stageStep();
     this.passiveTick();
     this.sampleHealth();
@@ -1240,6 +1234,7 @@ export class Game {
     this.iqCeiling = snap.iqCeiling;
     this.geneBonus = snap.geneBonus;
     this.owned = new Set(snap.owned);
+    this.jobsTaken = new Set(snap.jobsTaken);
     this.bigFired = snap.bigFired;
     this.jackpotFired = snap.jackpotFired;
     this.petAdopted = snap.petAdopted;
@@ -1257,7 +1252,7 @@ export class Game {
     this.history = this.history.slice(0, snap.historyLen);
     this.floats = [];
     this.clearOverlay();
-    this.loadStage(stageIndex);
+    this.loadStage(stageIndex, true); // restoring: don't re-sample/re-snapshot the entry
     this.hint(`⏳ You travelled back to age ${Math.floor(this.age)}.`);
   }
 
@@ -1601,7 +1596,7 @@ export class Game {
       ? `<b class="plj-press" style="background:#5a2a33;color:#ffc4c4">💸 can't afford</b>`
       : `<b class="plj-press">SPACE</b>`;
     panel.innerHTML =
-      `<span class="plj-focus-title">${opt.icon} ${esc(opt.label)}</span>` +
+      `<span class="plj-focus-title">${esc(opt.icon)} ${esc(opt.label)}</span>` +
       `<span class="plj-focus-desc">${esc(opt.desc)}</span>` +
       `<span class="plj-chips">${effectChips(opt.effects)}${extra.join("")}${press}</span>`;
   }
@@ -1802,7 +1797,7 @@ export class Game {
       const moments = ch.moments.length
         ? ch.moments.map((m, i) => `
           <div class="plj-bio-moment">
-            <span>${m.icon} ${esc(m.desc)}</span>
+            <span>${esc(m.icon)} ${esc(m.desc)}</span>
             <button class="plj-bio-del" data-stage="${s.id}" data-i="${i}">✕</button>
           </div>`).join("")
         : `<div class="plj-bio-empty">— a quiet chapter —</div>`;
@@ -2089,8 +2084,13 @@ export class Game {
   private changeJob(o: Occupation): void {
     const prev = this.occupation;
     this.occupation = o;
-    if (o.perks) this.applyEff(o.perks, "split");
-    this.applyEff({ happiness: 4 }, "mental");
+    // One-off perks + the "fresh start" happiness only the FIRST time you hold a
+    // job this life — otherwise toggling A→B→A→B farms free stats every switch.
+    if (!this.jobsTaken.has(o.id)) {
+      if (o.perks) this.applyEff(o.perks, "split");
+      this.applyEff({ happiness: 4 }, "mental");
+      this.jobsTaken.add(o.id);
+    }
     this.history.push({
       stageId: STAGES[this.stageIndex].id,
       stageName: STAGES[this.stageIndex].name,
@@ -2195,7 +2195,6 @@ export class Game {
       };
     });
     this.ui.overlay.querySelector<HTMLButtonElement>("#plj-house-cancel")!.onclick = () => {
-      this.pendingHouseOptId = null;
       this.mode = "playing";
       this.clearOverlay();
     };
