@@ -1,4 +1,5 @@
 :root {
+  /* ---- DAY theme (default): bright sky-blue daylight ---- */
   --bg: #58b9ff;
   --bg2: #bcecff;
   --panel: #17233f;
@@ -8,7 +9,27 @@
   --line: #2a75c9;
   --pink: #ff5fb1;
   --gold: #ffe14f;
+  --accent: #ff8fd0;
+  /* the soft top sheen painted over the background gradient */
+  --sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 28%);
   --font: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+}
+
+/* ---- NIGHT theme: deep-violet "aurora" twilight ---- */
+html[data-theme="night"] {
+  --bg: #100a24;
+  --bg2: #2a1d54;
+  --panel: #221643;
+  --panel2: #2c2058;
+  --ink: #f3eefc;
+  --muted: #b3a4dd;
+  --line: #3a2a6a;
+  --pink: #ff7ad9;
+  --gold: #ffd23f;
+  --accent: #ff8fd0;
+  --sheen: radial-gradient(120% 80% at 50% -10%, rgba(150, 120, 255, 0.22), rgba(150, 120, 255, 0) 60%);
+  color-scheme: dark;
 }
 
 * {
@@ -20,8 +41,9 @@ body {
   margin: 0;
   padding: 0;
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.5), rgba(255,255,255,0) 28%),
+    var(--sheen),
     radial-gradient(120% 120% at 50% 0%, var(--bg2), var(--bg));
+  transition: background 0.4s ease;
   color: var(--ink);
   font-family: var(--font);
   min-height: 100%;
@@ -43,6 +65,31 @@ body {
   gap: 10px;
 }
 
+/* ---- theme (day/night) toggle ------------------------------------------- */
+.plj-theme-btn {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s ease, background 0.2s ease;
+}
+.plj-theme-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+.plj-theme-btn:active {
+  transform: scale(0.9);
+}
+
 /* ---- HUD ---------------------------------------------------------------- */
 .plj-hud {
   background: linear-gradient(180deg, var(--panel2), var(--panel));
@@ -50,6 +97,9 @@ body {
   border-radius: 12px;
   padding: 8px 12px;
   box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
+}
+.plj-hud-right {
+  align-items: center;
 }
 .plj-hud-top {
   display: flex;

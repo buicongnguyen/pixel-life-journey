@@ -1296,6 +1296,7 @@ export class Game {
   private editBio: Biography | null = null; // the draft being edited in the author
   // the how-to-play guide shows once (then it's tucked away during the game)
   private guideSeen = localStorage.getItem("plj-guide-seen-v1") === "1";
+  private theme: "day" | "night" = localStorage.getItem("plj-theme-v1") === "night" ? "night" : "day";
 
   private healthSum = 0;
   private happinessSum = 0;
@@ -1333,6 +1334,7 @@ export class Game {
 
   constructor(mount: HTMLElement) {
     this.ui = createUI(mount);
+    this.applyTheme();
     this.bindInput();
     void this.loadTrainingDatabase();
     this.showTitle();
@@ -3687,6 +3689,25 @@ export class Game {
     this.hintTimer = 1.6;
   }
 
+  /** Apply the saved day/night theme to the document + refresh the toggle glyph. */
+  private applyTheme(): void {
+    document.documentElement.setAttribute("data-theme", this.theme);
+    // the button shows the theme you'd switch TO
+    this.ui.themeBtn.textContent = this.theme === "night" ? "☀️" : "🌙";
+    this.ui.themeBtn.title = this.theme === "night" ? "Switch to day theme" : "Switch to night theme";
+  }
+
+  /** Flip between the bright daylight and deep-violet night themes (persisted). */
+  private toggleTheme(): void {
+    this.theme = this.theme === "night" ? "day" : "night";
+    try {
+      localStorage.setItem("plj-theme-v1", this.theme);
+    } catch {
+      /* ignore */
+    }
+    this.applyTheme();
+  }
+
   /** The intro guide shows once, then stays tucked away (remembered across lives). */
   private markGuideSeen(): void {
     if (this.guideSeen) return;
@@ -5415,6 +5436,7 @@ export class Game {
     this.ui.profileBtn.addEventListener("click", () => this.showProfile());
     this.ui.settingsBtn.addEventListener("click", () => this.showSettings());
     this.ui.skipBtn.addEventListener("click", () => this.skipStage());
+    this.ui.themeBtn.addEventListener("click", () => this.toggleTheme());
   }
 }
 

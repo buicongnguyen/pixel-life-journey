@@ -26,6 +26,7 @@ export interface UIRefs {
   profileBtn: HTMLElement;
   settingsBtn: HTMLElement;
   skipBtn: HTMLElement;
+  themeBtn: HTMLElement;
   touchWrap: HTMLElement;
   inventoryWrap: HTMLElement;
   inventoryTrack: HTMLElement;
@@ -58,7 +59,9 @@ export function createUI(mount: HTMLElement): UIRefs {
   const ageLabel = el("span", "plj-age-num", "0");
   const leLabel = el("span", "plj-le", "");
   ageWrap.append(document.createTextNode("Age "), ageLabel, leLabel);
-  rightWrap.append(moneyLabel, ageWrap);
+  const themeBtn = el("button", "plj-theme-btn", "🌙");
+  themeBtn.title = "Toggle day / night theme";
+  rightWrap.append(moneyLabel, ageWrap, themeBtn);
   topRow.append(stageLabel, rightWrap);
 
   const barsRow = el("div", "plj-bars");
@@ -185,6 +188,7 @@ export function createUI(mount: HTMLElement): UIRefs {
     profileBtn,
     settingsBtn,
     skipBtn,
+    themeBtn,
     touchWrap,
     inventoryWrap,
     inventoryTrack,
