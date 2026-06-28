@@ -150,7 +150,8 @@ export function createUI(mount: HTMLElement): UIRefs {
   const right = el("button", "plj-tbtn plj-right", "▶");
   const down = el("button", "plj-tbtn plj-down", "▼");
   dpad.append(up, left, right, down);
-  const act = el("button", "plj-act", "✓");
+  const act = el("button", "plj-act", "<span class='plj-collect-ic'>🤝</span><span class='plj-collect-lbl'>Collect</span>");
+  act.title = "Collect / interact (or press SPACE)";
   touchWrap.append(dpad, act);
   // the touch controls live INSIDE the stage so they overlay the canvas (thumbs
   // on the game), keeping everything on one mobile screen with no page scroll

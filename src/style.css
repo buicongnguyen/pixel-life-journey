@@ -315,8 +315,15 @@ body {
   border-radius: 50%;
   background: rgba(255, 122, 217, 0.8);
   color: #2a0f24;
-  font-size: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
 }
+.plj-collect-ic { font-size: 26px; line-height: 1; }
+.plj-collect-lbl { font-size: 10px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase; color: rgba(42, 15, 36, 0.85); }
+.plj-act[data-ready="true"] { box-shadow: 0 0 0 3px rgba(61, 220, 132, 0.5), 0 3px 0 rgba(0, 0, 0, 0.4); }
 @media (pointer: coarse), (max-width: 700px), (max-height: 620px) {
   .plj-touch {
     display: flex;
