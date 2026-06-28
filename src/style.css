@@ -269,7 +269,7 @@ body {
   left: 0;
   right: 0;
   bottom: 10px;
-  display: none;
+  display: flex;
   justify-content: space-between;
   align-items: flex-end;
   padding: 0 12px;
@@ -277,25 +277,51 @@ body {
   user-select: none;
   z-index: 3;
 }
-.plj-dpad,
+.plj-stick,
 .plj-act {
   pointer-events: auto;
 }
-.plj-dpad {
+/* analog thumb-stick: a round zone you drag in any direction (touch or mouse) */
+.plj-stick {
+  position: relative;
+  flex: 0 0 auto;
+  width: 124px;
+  height: 124px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 60%),
+    linear-gradient(180deg, rgba(44, 30, 84, 0.6), rgba(17, 27, 52, 0.66));
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.4), inset 0 0 0 6px rgba(255, 255, 255, 0.05);
   display: grid;
-  grid-template-columns: repeat(3, 46px);
-  grid-template-rows: repeat(3, 46px);
-  grid-template-areas:
-    ". up ."
-    "left . right"
-    ". down .";
-  gap: 4px;
+  place-items: center;
+  touch-action: none;
+  cursor: grab;
 }
-.plj-up { grid-area: up; }
-.plj-down { grid-area: down; }
-.plj-left { grid-area: left; }
-.plj-right { grid-area: right; }
-.plj-tbtn,
+.plj-stick[data-engaged="true"] {
+  border-color: rgba(255, 255, 255, 0.42);
+  cursor: grabbing;
+}
+.plj-stick-knob {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.32);
+  background: linear-gradient(180deg, var(--pink), #b8407f);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.42);
+  transform: translate(var(--stick-x, 0px), var(--stick-y, 0px));
+  pointer-events: none;
+}
+.plj-stick-hint {
+  position: absolute;
+  bottom: 9px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+}
 .plj-act {
   border: 2px solid rgba(255, 255, 255, 0.18);
   background: rgba(44, 30, 84, 0.62);
@@ -307,7 +333,6 @@ body {
   cursor: pointer;
   box-shadow: 0 3px 0 rgba(0, 0, 0, 0.4);
 }
-.plj-tbtn:active,
 .plj-act:active {
   transform: translateY(2px);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
@@ -330,6 +355,16 @@ body {
 @media (pointer: coarse), (max-width: 700px), (max-height: 620px) {
   .plj-touch {
     display: flex;
+  }
+}
+@media (max-width: 420px) {
+  .plj-stick {
+    width: 104px;
+    height: 104px;
+  }
+  .plj-stick-knob {
+    width: 48px;
+    height: 48px;
   }
 }
 

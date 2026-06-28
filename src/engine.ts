@@ -57,6 +57,7 @@ import {
 import { avatarLook, drawAvatar, drawPerson, drawRoom, drawStation } from "./sprites";
 import { createUI, type UIRefs } from "./ui";
 import { generateStory, type CauseOfEnd, type LifeStory } from "./story";
+import { linePool } from "./messages";
 
 const W = 640;
 const H = 800; // a tall room with only a thin wall strip — almost all play floor
@@ -213,6 +214,8 @@ export class Game {
   private people: Station[] = []; // cached person stations (block bad items)
   // a transient banner shown in the sky area after you interact with a person
   private skyMessage: { text: string; sub?: string; color: string; timer: number } | null = null;
+  // rotating flavor-line cursor, keyed per person-kind / item-id (cosmetic)
+  private lineIndex: Record<string, number> = {};
   private floats: FloatText[] = [];
   private focusIndex = -1;
 
@@ -220,6 +223,10 @@ export class Game {
   private py = 450;
   private walkPhase = 0;
   private moving = false;
+  private joyActive = false;
+  private joyX = 0;
+  private joyY = 0;
+  private joyPointerId: number | null = null;
   private cooldown = 0;
   private hintTimer = 0;
 
@@ -328,6 +335,7 @@ export class Game {
 
   private newGame(keepBiography = false): void {
     if (!keepBiography) this.biography = null; // normal play is never a replay
+    this.lineIndex = {}; // restart the rotating greeting / pickup lines
     this.stats = { ...START_STATS };
     this.age = 0;
     this.weight = START_WEIGHT;
@@ -1308,22 +1316,33 @@ export class Game {
       return;
     }
 
-    // movement
+    // movement — an analog thumb-stick (any direction, speed scales with tilt)
+    // takes over when engaged; otherwise the keyboard drives a unit vector.
     let dx = 0;
     let dy = 0;
-    if (this.input.left) dx -= 1;
-    if (this.input.right) dx += 1;
-    if (this.input.up) dy -= 1;
-    if (this.input.down) dy += 1;
-    this.moving = dx !== 0 || dy !== 0;
+    if (this.joyActive) {
+      dx = this.joyX;
+      dy = this.joyY;
+    } else {
+      if (this.input.left) dx -= 1;
+      if (this.input.right) dx += 1;
+      if (this.input.up) dy -= 1;
+      if (this.input.down) dy += 1;
+    }
+    let mag = Math.hypot(dx, dy);
+    if (mag > 1) {
+      dx /= mag;
+      dy /= mag;
+      mag = 1;
+    } // cap keyboard diagonals + stick overshoot at full speed
+    this.moving = mag > 0.12; // a small dead-zone so a resting thumb doesn't drift
     if (this.moving) {
-      const len = Math.hypot(dx, dy) || 1;
       const sp = SPEED * this.speedFactor(); // study & smarts make you nimbler
-      this.px += (dx / len) * sp * dt;
-      this.py += (dy / len) * sp * dt;
+      this.px += dx * sp * dt; // dx/dy carry the analog magnitude → variable speed
+      this.py += dy * sp * dt;
       this.px = Math.max(48, Math.min(W - 36, this.px));
       this.py = Math.max(PY_MIN, Math.min(PY_MAX, this.py));
-      this.walkPhase += dt * 10;
+      this.walkPhase += dt * 10 * Math.min(1, mag * 1.5);
     } else {
       this.walkPhase += dt * 3;
     }
@@ -1669,6 +1688,17 @@ export class Game {
   }
 
   /** After interacting with a person, announce who + the point change in the sky. */
+  /** The next rotating flavor line for a person (by kind) or item (by id), looping;
+   *  falls back to the option's own desc when no lines are defined for it. */
+  private cycledLine(opt: LifeOption): string {
+    const pool = linePool(opt.person, opt.id);
+    if (!pool || !pool.length) return (opt.desc || opt.label || "").trim();
+    const key = opt.person ? "p:" + opt.person : "i:" + opt.id;
+    const i = this.lineIndex[key] ?? 0;
+    this.lineIndex[key] = i + 1;
+    return pool[i % pool.length];
+  }
+
   private showOptionSky(opt: LifeOption, before: { health: number; happiness: number; fun: number; smarts: number; money: number }, overrideText?: string): void {
     const parts: string[] = [];
     const add = (now: number, was: number, icon: string): void => {
@@ -1681,7 +1711,7 @@ export class Game {
     add(this.stats.smarts, before.smarts, "🧠");
     const dMoney = Math.round(this.money - before.money);
     if (dMoney !== 0) parts.push(`💰${dMoney > 0 ? "+" : "-"}${formatMoney(Math.abs(dMoney)).replace("$", "")}`);
-    const desc = (opt.desc || opt.label || "Nice to see you.").trim();
+    const desc = overrideText ? "" : this.cycledLine(opt);
     const good = this.stats.happiness - before.happiness + (this.stats.health - before.health) >= 0;
     this.skyMessage = {
       text: overrideText || `${opt.icon} ${desc}`,
@@ -2430,6 +2460,24 @@ export class Game {
 
   // --- input ----------------------------------------------------------------
 
+  private updateStick(e: PointerEvent): void {
+    const rect = this.ui.stick.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const maxR = Math.min(rect.width, rect.height) * 0.34;
+    let dx = e.clientX - cx;
+    let dy = e.clientY - cy;
+    const dist = Math.hypot(dx, dy);
+    if (dist > maxR && dist > 0) {
+      dx = (dx / dist) * maxR;
+      dy = (dy / dist) * maxR;
+    }
+    this.ui.stickKnob.style.setProperty("--stick-x", `${dx.toFixed(1)}px`);
+    this.ui.stickKnob.style.setProperty("--stick-y", `${dy.toFixed(1)}px`);
+    this.joyX = maxR > 0 ? dx / maxR : 0;
+    this.joyY = maxR > 0 ? dy / maxR : 0;
+  }
+
   private bindInput(): void {
     const setDir = (e: KeyboardEvent, down: boolean): void => {
       switch (e.key) {
@@ -2453,18 +2501,42 @@ export class Game {
     window.addEventListener("keydown", (e) => setDir(e, true));
     window.addEventListener("keyup", (e) => setDir(e, false));
 
-    const bindHold = (node: HTMLElement, key: "left" | "right" | "up" | "down"): void => {
-      const on = (e: Event) => { e.preventDefault(); this.input[key] = true; };
-      const off = (e: Event) => { e.preventDefault(); this.input[key] = false; };
-      node.addEventListener("pointerdown", on);
-      node.addEventListener("pointerup", off);
-      node.addEventListener("pointerleave", off);
-      node.addEventListener("pointercancel", off);
+    // --- analog thumb-stick (Rambo-style): drag in any direction; speed scales
+    // with how far you push. Pointer events → works with touch AND mouse. ---
+    const stick = this.ui.stick;
+    const releaseStick = (e?: PointerEvent): void => {
+      if (e && e.pointerId !== this.joyPointerId) return;
+      if (e && this.joyPointerId !== null && stick.hasPointerCapture(this.joyPointerId)) {
+        stick.releasePointerCapture(this.joyPointerId);
+      }
+      this.joyPointerId = null;
+      this.joyActive = false;
+      this.joyX = 0;
+      this.joyY = 0;
+      stick.dataset.engaged = "false";
+      this.ui.stickKnob.style.setProperty("--stick-x", "0px");
+      this.ui.stickKnob.style.setProperty("--stick-y", "0px");
     };
-    bindHold(this.ui.touch.left, "left");
-    bindHold(this.ui.touch.right, "right");
-    bindHold(this.ui.touch.up, "up");
-    bindHold(this.ui.touch.down, "down");
+    stick.addEventListener("pointerdown", (e) => {
+      if (this.joyPointerId !== null) return; // first finger owns the stick
+      e.preventDefault();
+      this.joyPointerId = e.pointerId;
+      this.joyActive = true;
+      stick.dataset.engaged = "true";
+      stick.setPointerCapture(e.pointerId);
+      this.updateStick(e);
+    });
+    stick.addEventListener("pointermove", (e) => {
+      if (e.pointerId !== this.joyPointerId) return;
+      e.preventDefault();
+      this.updateStick(e);
+    });
+    stick.addEventListener("pointerup", releaseStick);
+    stick.addEventListener("pointercancel", releaseStick);
+    stick.addEventListener("lostpointercapture", () => {
+      if (this.joyPointerId !== null) releaseStick();
+    });
+    stick.addEventListener("contextmenu", (e) => e.preventDefault());
     this.ui.touch.act.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       this.actQueued = true;
