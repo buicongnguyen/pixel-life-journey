@@ -75,6 +75,8 @@ const ITEM_R = 26; // contact / collect radius
 const BLOCK_R = 30; // an NPC standing in the path blocks a bad item
 const SATIATE_TIME = 9; // seconds a bad item stays frozen/faded after you do its good counterpart
 const CAREER_INDEX = STAGES.findIndex((s) => s.id === "career");
+/** Depth comparator for the render draw-list — reused so it isn't reallocated each frame. */
+const byDepth = (a: { y: number }, b: { y: number }): number => a.y - b.y;
 
 type Mode =
   | "title"
@@ -213,7 +215,13 @@ export class Game {
   private stations: Station[] = [];
   private people: Station[] = []; // cached person stations (block bad items)
   // a transient banner shown in the sky area after you interact with a person
-  private skyMessage: { text: string; sub?: string; color: string; timer: number } | null = null;
+  private skyMessage: { text: string; sub?: string; color: string; timer: number; wrapW?: number; wrapLines?: string[]; wrapCW?: number } | null = null;
+  // pooled depth-sorted draw-list, rebuilt in place each frame (no per-frame alloc)
+  private drawList: { y: number; station?: Station }[] = [];
+  // HUD dirty-check: skip reflow-causing DOM writes when nothing relevant changed
+  private hudSig = NaN;
+  private hudMode = "";
+  private hudOcc = "";
   // rotating flavor-line cursor, keyed per person-kind / item-id (cosmetic)
   private lineIndex: Record<string, number> = {};
   private floats: FloatText[] = [];
@@ -1300,7 +1308,9 @@ export class Game {
       if (this.skyMessage.timer <= 0) this.skyMessage = null;
     }
     // floats animate in every mode
-    this.floats = this.floats.filter((f) => (f.life -= dt) > 0);
+    for (let i = this.floats.length - 1; i >= 0; i--) {
+      if ((this.floats[i].life -= dt) <= 0) this.floats.splice(i, 1);
+    }
     for (const f of this.floats) f.y -= dt * 26;
 
     if (this.mode === "transition") {
@@ -1486,11 +1496,20 @@ export class Game {
         homeQuality: this.homeQuality,
       });
 
-      // draw stations, people and the avatar together, sorted by depth (y)
-      type Drawable = { y: number; station?: Station };
-      const drawables: Drawable[] = this.stations.map((st) => ({ y: st.y, station: st }));
-      drawables.push({ y: this.py }); // the avatar
-      drawables.sort((a, b) => a.y - b.y);
+      // draw stations, people and the avatar together, sorted by depth (y).
+      // Reuse a pooled draw-list so we don't allocate an array + N objects each frame.
+      const drawables = this.drawList;
+      let dn = 0;
+      for (const st of this.stations) {
+        const o = drawables[dn] ?? (drawables[dn] = { y: 0 });
+        o.y = st.y; o.station = st; dn++;
+      }
+      {
+        const o = drawables[dn] ?? (drawables[dn] = { y: 0 });
+        o.y = this.py; o.station = undefined; dn++; // the avatar
+      }
+      drawables.length = dn;
+      drawables.sort(byDepth);
       for (const d of drawables) {
         if (!d.station) {
           drawAvatar(ctx, this.px, this.py, avatarLook(this.stageIndex, this.gender), this.walkPhase, this.moving);
@@ -1540,20 +1559,27 @@ export class Game {
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.textAlign = "center";
-      const maxW = Math.min(W - 32, 540);
-      ctx.font = "bold 18px 'Trebuchet MS', system-ui, sans-serif";
-      const lines: string[] = [];
-      let cur = "";
-      for (const word of m.text.split(" ")) {
-        const test = cur ? cur + " " + word : word;
-        if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = word; }
-        else cur = test;
+      // Word-wrap once and cache it on the message — measureText is costly and the
+      // banner shows for ~3s, so re-wrapping it every frame was pure waste.
+      if (!m.wrapLines || m.wrapW !== W) {
+        const maxW = Math.min(W - 32, 540);
+        ctx.font = "bold 18px 'Trebuchet MS', system-ui, sans-serif";
+        const wl: string[] = [];
+        let cur = "";
+        for (const word of m.text.split(" ")) {
+          const test = cur ? cur + " " + word : word;
+          if (ctx.measureText(test).width > maxW && cur) { wl.push(cur); cur = word; }
+          else cur = test;
+        }
+        if (cur) wl.push(cur);
+        let cw = 0;
+        for (const ln of wl) cw = Math.max(cw, ctx.measureText(ln).width);
+        ctx.font = "bold 16px 'Trebuchet MS', system-ui, sans-serif";
+        if (m.sub) cw = Math.max(cw, ctx.measureText(m.sub).width);
+        m.wrapLines = wl; m.wrapCW = cw; m.wrapW = W;
       }
-      if (cur) lines.push(cur);
-      let contentW = 0;
-      for (const ln of lines) contentW = Math.max(contentW, ctx.measureText(ln).width);
-      ctx.font = "bold 16px 'Trebuchet MS', system-ui, sans-serif";
-      if (m.sub) contentW = Math.max(contentW, ctx.measureText(m.sub).width);
+      const lines = m.wrapLines;
+      const contentW = m.wrapCW ?? 0;
       const lineH = 23;
       const subH = m.sub ? 23 : 0;
       const padX = 18;
@@ -1585,6 +1611,23 @@ export class Game {
   }
 
   private renderHud(): void {
+    // Most of the HUD changes only on a discrete action / mode change, yet this runs
+    // every frame. A cheap numeric signature lets us skip the reflow-causing DOM
+    // writes when nothing relevant changed.
+    const sig = Math.round(this.money)
+      + Math.floor(this.age) * 131
+      + this.stageIndex * 100003
+      + Math.round(this.stats.health) * 7
+      + Math.round(this.stats.happiness) * 13
+      + Math.round(this.stats.fun) * 17
+      + Math.round(this.stats.smarts) * 19
+      + Math.round(this.weight) * 23
+      + Math.round(this.muscle) * 29
+      + Math.round(this.nutrition) * 31
+      + Math.round(this.mental) * 37;
+    const occId = this.occupation?.id ?? "";
+    if (sig !== this.hudSig || this.mode !== this.hudMode || occId !== this.hudOcc) {
+    this.hudSig = sig; this.hudMode = this.mode; this.hudOcc = occId;
     for (const k of STAT_KEYS) {
       const v = Math.round(this.stats[k]);
       const bar = this.ui.bars[k];
@@ -1643,7 +1686,10 @@ export class Game {
     this.ui.settingsBtn.style.display = playing ? "flex" : "none";
     this.ui.skipBtn.style.display = playing ? "flex" : "none";
     this.ui.touchWrap.style.visibility = playing ? "" : "hidden";
-    this.ui.touch.act.dataset.ready = playing && (this.focusIndex >= 0 || (this.doorOpen() && this.px > DOOR_X - 36)) ? "true" : "false";
+    }
+    // Collect-button glow tracks the avatar's position/focus, so refresh it each frame.
+    const playing2 = this.mode === "playing";
+    this.ui.touch.act.dataset.ready = playing2 && (this.focusIndex >= 0 || (this.doorOpen() && this.px > DOOR_X - 36)) ? "true" : "false";
   }
 
   private renderFocusPanel(): void {
