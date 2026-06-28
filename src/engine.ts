@@ -494,6 +494,7 @@ export class Game {
     if (opt.opensHousePicker || opt.opensVehiclePicker || opt.opensCareerDesk || opt.gamble || opt.invest || opt.moneyMgmt || opt.category === "special")
       return { kind: "neutral" };
     const t = opt.storyTag;
+    if (opt.treat) return { kind: "good" }; // candy & sweets: a collectible treat
     if (t === "junkfood") return { kind: "bad", guard: "diet" }; // avoid by eating well
     if (t === "sedentary" || t === "gaming" || t === "screen" || t === "toy_phone") return { kind: "bad", guard: "fit" }; // avoid by staying fit
     return { kind: "good" };
@@ -1667,11 +1668,6 @@ export class Game {
     this.hintTimer = 1.6;
   }
 
-  /** Show a transient banner in the sky area at the top of the play field. */
-  private showSky(text: string, color: string): void {
-    this.skyMessage = { text, color, timer: 2.6 };
-  }
-
   /** After interacting with a person, announce who + the point change in the sky. */
   private showOptionSky(opt: LifeOption, before: { health: number; happiness: number; fun: number; smarts: number; money: number }, overrideText?: string): void {
     const parts: string[] = [];
@@ -1826,9 +1822,9 @@ export class Game {
             <span class="plj-bio-item-sub">${esc(b.subtitle || "")}${b.subtitle ? " · " : ""}${bioMomentCount(b)} moments</span>
           </div>
           <div class="plj-bio-item-btns">
-            <button class="plj-btn plj-bio-play2" data-id="${b.id}">▶ Play</button>
-            <button class="plj-btn plj-btn-ghost plj-bio-edit" data-id="${b.id}" title="Edit">✎</button>
-            <button class="plj-btn plj-btn-ghost plj-bio-del2" data-id="${b.id}" title="Delete">🗑</button>
+            <button class="plj-btn plj-bio-play2" data-id="${esc(b.id)}">▶ Play</button>
+            <button class="plj-btn plj-btn-ghost plj-bio-edit" data-id="${esc(b.id)}" title="Edit">✎</button>
+            <button class="plj-btn plj-btn-ghost plj-bio-del2" data-id="${esc(b.id)}" title="Delete">🗑</button>
           </div>
         </div>`).join("")
       : `<p class="plj-sub">No biographies yet. Write one — or live a life and save it at the end.</p>`;
@@ -2482,7 +2478,7 @@ export class Game {
 
 function effectChips(effects: Partial<Stats>): string {
   return (Object.entries(effects) as [StatKey, number][])
-    .filter(([, v]) => v)
+    .filter(([k, v]) => v && STAT_META[k])
     .map(
       ([k, v]) =>
         `<span class="plj-chip" style="color:${v > 0 ? STAT_META[k].color : "#ff8a8a"}">${

@@ -128,6 +128,8 @@ export interface LifeOption {
   gamble?: GambleSpec;
   /** Key into the story comment bank (see story.ts). */
   storyTag?: string;
+  /** A sweet treat (e.g. candy): collectible, only mildly unhealthy. */
+  treat?: boolean;
 }
 
 export interface RoomTheme {
