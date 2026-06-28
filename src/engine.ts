@@ -61,10 +61,14 @@ import { avatarLook, drawAvatar, drawEventItem, drawPerson, drawPet, drawRoom, d
 import { createUI, type UIRefs } from "./ui";
 import { generateStory, type CauseOfEnd, type LifeStory } from "./story";
 
-const W = 640;
-const H = 1000; // tall portrait room: fills a phone screen while leaving a comfortable control band
-const FLOOR_Y = 72; // sky-only non-playable band; ground starts right below it
-const DOOR_X = W - 74;
+// Room dimensions are NOT fixed: they switch between a tall portrait shape and a
+// wide-short landscape shape (setRoomDims) so the playfield fills the screen in
+// either orientation instead of a narrow centre strip. Everything reads these
+// live, so re-laying out is just setRoomDims() + a canvas resize + rebuild.
+let W = 640;
+let H = 1000;
+let FLOOR_Y = 72; // sky-only non-playable band; ground starts right below it
+let DOOR_X = W - 74;
 const STAGE_GATE_R = 31;
 const GATE_HALF_H = STAGE_GATE_R + 7;
 const UTILITY_GATE_X = 58;
@@ -73,10 +77,24 @@ const ASSETS_GATE_R = 21;
 const TRAINING_GATE_R = 21;
 const UTILITY_GATE_GAP = 54;
 const SPEED = 205; // base move speed (scaled up by your IQ — smart = nimble)
-const PY_MIN = 142; // feet stay on ground while the sky remains scenic only
-const PY_MAX = 982;
-const SOCIAL_Y_MIN = PY_MIN + 48;
-const FAMILY_Y_MAX = PY_MAX - 24;
+let PY_MIN = 142; // feet stay on ground while the sky remains scenic only
+let PY_MAX = 982;
+let SOCIAL_Y_MIN = PY_MIN + 48;
+let FAMILY_Y_MAX = PY_MAX - 24;
+
+const SS = 2; // canvas supersample factor (mirrors ui.ts)
+const ROOM_PORTRAIT = { W: 640, H: 1000, FLOOR_Y: 72, PY_MIN: 142, PY_MAX: 982 };
+const ROOM_LANDSCAPE = { W: 1180, H: 560, FLOOR_Y: 52, PY_MIN: 116, PY_MAX: 544 };
+function setRoomDims(r: { W: number; H: number; FLOOR_Y: number; PY_MIN: number; PY_MAX: number }): void {
+  W = r.W;
+  H = r.H;
+  FLOOR_Y = r.FLOOR_Y;
+  PY_MIN = r.PY_MIN;
+  PY_MAX = r.PY_MAX;
+  DOOR_X = W - 74;
+  SOCIAL_Y_MIN = PY_MIN + 48;
+  FAMILY_Y_MAX = PY_MAX - 24;
+}
 const ZONE_GATE_GAP = 48;
 const MIN_ZONE_HEIGHT = 118;
 // --- moving-items mechanic ---
@@ -1297,6 +1315,7 @@ export class Game {
   // the how-to-play guide shows once (then it's tucked away during the game)
   private guideSeen = localStorage.getItem("plj-guide-seen-v1") === "1";
   private theme: "day" | "night" = localStorage.getItem("plj-theme-v1") === "night" ? "night" : "day";
+  private currentLandscape = false;
 
   private healthSum = 0;
   private happinessSum = 0;
@@ -1335,13 +1354,43 @@ export class Game {
   constructor(mount: HTMLElement) {
     this.ui = createUI(mount);
     this.applyTheme();
+    this.applyLayout(true);
     this.bindInput();
+    window.addEventListener("resize", () => this.applyLayout());
+    window.addEventListener("orientationchange", () => this.applyLayout());
     void this.loadTrainingDatabase();
     this.showTitle();
     this.renderInventory();
     requestAnimationFrame(this.frame);
     // Debug handle for headless verification (mirrors other games' debug APIs).
     (window as unknown as { __pixelLife: Game }).__pixelLife = this;
+  }
+
+  /**
+   * Pick the room shape from the viewport orientation: a tall portrait room, or
+   * a wide-short landscape room so a phone held sideways gets a full-width
+   * playfield instead of a narrow centre strip. Resizes the canvas + re-lays the
+   * running stage when the orientation flips.
+   */
+  private applyLayout(initial = false): void {
+    const landscape = window.innerWidth > window.innerHeight && window.innerHeight < 640;
+    if (!initial && landscape === this.currentLandscape) return;
+    this.currentLandscape = landscape;
+    setRoomDims(landscape ? ROOM_LANDSCAPE : ROOM_PORTRAIT);
+    const cv = this.ui.canvas;
+    cv.width = W * SS;
+    cv.height = H * SS;
+    this.ui.ctx.setTransform(SS, 0, 0, SS, 0, 0);
+    this.ui.ctx.imageSmoothingEnabled = true;
+    this.ui.ctx.imageSmoothingQuality = "high";
+    this.ui.frame.style.setProperty("--room-aspect", `${W} / ${H}`);
+    if (!initial) {
+      // re-fit the in-progress game to the new room shape
+      this.px = Math.max(48, Math.min(W - 36, this.px));
+      this.py = Math.max(PY_MIN, Math.min(PY_MAX, this.py));
+      if (this.mode === "playing") this.buildStations();
+      this.placePetInRoom(this.petX, this.petY);
+    }
   }
 
   /** Test/debug snapshot of the live game state. */
