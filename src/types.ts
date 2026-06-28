@@ -30,21 +30,16 @@ export type PersonKind =
   | "father"
   | "grandma"
   | "grandpa"
-  | "babySibling"
   | "sibling"
   | "playmate"
   | "studyFriend"
   | "bestFriend"
   | "crush"
-  | "smokerFriend"
-  | "gangster"
-  | "playboy"
   | "roommate"
   | "coworker"
   | "boss"
   | "gymBuddy"
   | "spouse"
-  | "baby"
   | "child"
   | "grandkid"
   | "oldFriend";
@@ -58,17 +53,6 @@ export type SceneKind =
   | "office"
   | "home"
   | "sunset";
-
-/** The upper/social playable area's scenery. */
-export type UpperSceneKind =
-  | "park"
-  | "amusementPark"
-  | "schoolIndoor"
-  | "schoolOutdoor"
-  | "campusIndoor"
-  | "campusOutdoor"
-  | "officeIndoor"
-  | "officeOutdoor";
 
 /** A "try your luck" choice: spend a stake for a chance at a payout (all in $). */
 export interface GambleSpec {
@@ -160,14 +144,12 @@ export interface Stage {
   emoji: string;
   /** Age the player is at when the stage starts. */
   ageStart: number;
-  /** The stage gate opens once age >= ageEnd. */
+  /** The door opens once age >= ageEnd. */
   ageEnd: number;
   blurb: string;
   theme: RoomTheme;
   /** Scenery drawn behind this room (school, office, home…). */
   scene: SceneKind;
-  /** Optional rotating scenery for the upper/social playable area. */
-  upperScenes?: UpperSceneKind[];
   options: LifeOption[];
   /** Marriage stage shows a partner picker before the room loads. */
   isMarriage?: boolean;
@@ -217,12 +199,6 @@ export interface HistoryEntry {
 }
 
 export type Gender = "male" | "female";
-
-/** Visual-only avatar family style chosen on the setup screen. */
-export type HeritageStyle = "western" | "asian" | "middleEastern" | "black";
-
-/** Adopted room pet, chosen by the puppy/kitten surprise event. */
-export type PetKind = "dog" | "cat";
 
 /** A job chosen at the start of the Career stage. */
 export interface Occupation {

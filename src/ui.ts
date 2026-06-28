@@ -26,13 +26,9 @@ export interface UIRefs {
   profileBtn: HTMLElement;
   settingsBtn: HTMLElement;
   skipBtn: HTMLElement;
-  themeBtn: HTMLElement;
   touchWrap: HTMLElement;
-  stick: HTMLElement;
-  stickKnob: HTMLElement;
-  inventoryWrap: HTMLElement;
-  inventoryTrack: HTMLElement;
   overlay: HTMLElement;
+  touch: Record<"up" | "down" | "left" | "right" | "act", HTMLElement>;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -60,9 +56,7 @@ export function createUI(mount: HTMLElement): UIRefs {
   const ageLabel = el("span", "plj-age-num", "0");
   const leLabel = el("span", "plj-le", "");
   ageWrap.append(document.createTextNode("Age "), ageLabel, leLabel);
-  const themeBtn = el("button", "plj-theme-btn", "🌙");
-  themeBtn.title = "Toggle day / night theme";
-  rightWrap.append(moneyLabel, ageWrap, themeBtn);
+  rightWrap.append(moneyLabel, ageWrap);
   topRow.append(stageLabel, rightWrap);
 
   const barsRow = el("div", "plj-bars");
@@ -124,7 +118,7 @@ export function createUI(mount: HTMLElement): UIRefs {
   // at a fraction of the fill cost (a 4× buffer made the bigger room lag).
   const SS = 2;
   canvas.width = 640 * SS;
-  canvas.height = 1000 * SS;
+  canvas.height = 800 * SS;
   const ctx = canvas.getContext("2d")!;
   ctx.scale(SS, SS);
   ctx.imageSmoothingEnabled = true;
@@ -144,23 +138,20 @@ export function createUI(mount: HTMLElement): UIRefs {
   // --- bottom focus panel ---------------------------------------------------
   const focusPanel = el(
     "div",
-    "plj-focus is-hidden",
-    ""
+    "plj-focus",
+    `<span class="plj-focus-title">Move with arrows / WASD</span><span class="plj-focus-desc">Walk onto a glowing choice and press SPACE. Reach the door on the right to grow up.</span>`
   );
 
   // --- touch controls -------------------------------------------------------
   const touchWrap = el("div", "plj-touch");
-  // an analog thumb-stick (drag in any direction) — works with touch AND mouse
-  const stick = el("div", "plj-stick");
-  stick.dataset.engaged = "false";
-  const stickKnob = el("div", "plj-stick-knob");
-  const stickHint = el("span", "plj-stick-hint", "move");
-  stick.append(stickKnob, stickHint);
-  const inventoryWrap = el("div", "plj-inventory");
-  inventoryWrap.title = "Swipe left/right to select. Swipe up to eat food, or near a person to give.";
-  const inventoryTrack = el("div", "plj-inventory-track");
-  inventoryWrap.append(inventoryTrack);
-  touchWrap.append(stick, inventoryWrap);
+  const dpad = el("div", "plj-dpad");
+  const up = el("button", "plj-tbtn plj-up", "▲");
+  const left = el("button", "plj-tbtn plj-left", "◀");
+  const right = el("button", "plj-tbtn plj-right", "▶");
+  const down = el("button", "plj-tbtn plj-down", "▼");
+  dpad.append(up, left, right, down);
+  const act = el("button", "plj-act", "✓");
+  touchWrap.append(dpad, act);
   // the touch controls live INSIDE the stage so they overlay the canvas (thumbs
   // on the game), keeping everything on one mobile screen with no page scroll
   stage.append(touchWrap);
@@ -189,12 +180,8 @@ export function createUI(mount: HTMLElement): UIRefs {
     profileBtn,
     settingsBtn,
     skipBtn,
-    themeBtn,
     touchWrap,
-    stick,
-    stickKnob,
-    inventoryWrap,
-    inventoryTrack,
     overlay,
+    touch: { up, down, left, right, act },
   };
 }
