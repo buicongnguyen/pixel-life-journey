@@ -1346,6 +1346,11 @@ export class Game {
   private selectedInventory = 0;
 
   private input = { left: false, right: false, up: false, down: false };
+  // analog thumb-stick vector (-1..1); when engaged it overrides the keyboard
+  private joyActive = false;
+  private joyX = 0;
+  private joyY = 0;
+  private joyPointerId: number | null = null;
   private actQueued = false;
   private lastTime = 0;
   private renderTime = 0;
@@ -2970,27 +2975,38 @@ export class Game {
       return;
     }
 
-    // movement
+    // movement — an analog thumb-stick (any direction, speed scales with tilt)
+    // takes over when engaged; otherwise the keyboard drives a unit vector.
     let dx = 0;
     let dy = 0;
-    if (this.input.left) dx -= 1;
-    if (this.input.right) dx += 1;
-    if (this.input.up) dy -= 1;
-    if (this.input.down) dy += 1;
-    this.moving = dx !== 0 || dy !== 0;
+    if (this.joyActive) {
+      dx = this.joyX;
+      dy = this.joyY;
+    } else {
+      if (this.input.left) dx -= 1;
+      if (this.input.right) dx += 1;
+      if (this.input.up) dy -= 1;
+      if (this.input.down) dy += 1;
+    }
+    let mag = Math.hypot(dx, dy);
+    if (mag > 1) {
+      dx /= mag;
+      dy /= mag;
+      mag = 1;
+    } // cap keyboard diagonals + stick overshoot at full speed
+    this.moving = mag > 0.12; // a small dead-zone so a resting thumb doesn't drift
     if (this.moving) {
-      const len = Math.hypot(dx, dy) || 1;
-      const nx = dx / len;
-      const ny = dy / len;
+      const nx = dx / mag;
+      const ny = dy / mag;
       this.verticalBias = ny;
       if (Math.abs(nx) > 0.15) this.facing = nx < 0 ? "left" : "right";
       else this.facing = ny < -0.15 ? "back" : "front";
       const sp = SPEED * this.speedFactor(); // study & smarts make you nimbler
-      this.px += nx * sp * dt;
-      this.py += ny * sp * dt;
+      this.px += dx * sp * dt; // dx/dy carry the analog magnitude → variable speed
+      this.py += dy * sp * dt;
       this.px = Math.max(48, Math.min(W - 36, this.px));
       this.py = Math.max(PY_MIN, Math.min(PY_MAX, this.py));
-      this.walkPhase += dt * 10;
+      this.walkPhase += dt * 10 * Math.min(1, mag * 1.5);
     } else {
       this.verticalBias = 0;
       this.walkPhase += dt * 3;
@@ -5389,6 +5405,25 @@ export class Game {
 
   // --- input ----------------------------------------------------------------
 
+  /** Map a thumb-stick drag to a normalized (-1..1) vector + move the knob. */
+  private updateStick(e: PointerEvent): void {
+    const rect = this.ui.stick.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const maxR = Math.min(rect.width, rect.height) * 0.34;
+    let dx = e.clientX - cx;
+    let dy = e.clientY - cy;
+    const dist = Math.hypot(dx, dy);
+    if (dist > maxR && dist > 0) {
+      dx = (dx / dist) * maxR;
+      dy = (dy / dist) * maxR;
+    }
+    this.ui.stickKnob.style.setProperty("--stick-x", `${dx.toFixed(1)}px`);
+    this.ui.stickKnob.style.setProperty("--stick-y", `${dy.toFixed(1)}px`);
+    this.joyX = maxR > 0 ? dx / maxR : 0;
+    this.joyY = maxR > 0 ? dy / maxR : 0;
+  }
+
   private bindInput(): void {
     const setDir = (e: KeyboardEvent, down: boolean): void => {
       switch (e.key) {
@@ -5430,18 +5465,42 @@ export class Game {
       }
     });
 
-    const bindHold = (node: HTMLElement, key: "left" | "right" | "up" | "down"): void => {
-      const on = (e: Event) => { e.preventDefault(); this.input[key] = true; };
-      const off = (e: Event) => { e.preventDefault(); this.input[key] = false; };
-      node.addEventListener("pointerdown", on);
-      node.addEventListener("pointerup", off);
-      node.addEventListener("pointerleave", off);
-      node.addEventListener("pointercancel", off);
+    // --- analog thumb-stick (Rambo-style): drag in any direction; speed scales
+    // with how far you push. Pointer events → works with touch AND mouse. ---
+    const stick = this.ui.stick;
+    const releaseStick = (e?: PointerEvent): void => {
+      if (e && e.pointerId !== this.joyPointerId) return;
+      if (e && this.joyPointerId !== null && stick.hasPointerCapture(this.joyPointerId)) {
+        stick.releasePointerCapture(this.joyPointerId);
+      }
+      this.joyPointerId = null;
+      this.joyActive = false;
+      this.joyX = 0;
+      this.joyY = 0;
+      stick.dataset.engaged = "false";
+      this.ui.stickKnob.style.setProperty("--stick-x", "0px");
+      this.ui.stickKnob.style.setProperty("--stick-y", "0px");
     };
-    bindHold(this.ui.touch.left, "left");
-    bindHold(this.ui.touch.right, "right");
-    bindHold(this.ui.touch.up, "up");
-    bindHold(this.ui.touch.down, "down");
+    stick.addEventListener("pointerdown", (e) => {
+      if (this.joyPointerId !== null) return; // first finger owns the stick
+      e.preventDefault();
+      this.joyPointerId = e.pointerId;
+      this.joyActive = true;
+      stick.dataset.engaged = "true";
+      stick.setPointerCapture(e.pointerId);
+      this.updateStick(e);
+    });
+    stick.addEventListener("pointermove", (e) => {
+      if (e.pointerId !== this.joyPointerId) return;
+      e.preventDefault();
+      this.updateStick(e);
+    });
+    stick.addEventListener("pointerup", releaseStick);
+    stick.addEventListener("pointercancel", releaseStick);
+    stick.addEventListener("lostpointercapture", () => {
+      if (this.joyPointerId !== null) releaseStick();
+    });
+    stick.addEventListener("contextmenu", (e) => e.preventDefault());
 
     let inventoryDrag: { x: number; y: number; index: number | null; pointerId: number } | null = null;
     const inventoryIndexFrom = (target: EventTarget | null): number | null => {
