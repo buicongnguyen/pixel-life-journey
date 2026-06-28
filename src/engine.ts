@@ -62,7 +62,7 @@ import { createUI, type UIRefs } from "./ui";
 import { generateStory, type CauseOfEnd, type LifeStory } from "./story";
 
 const W = 640;
-const H = 1060; // tall portrait room so the playfield fills a phone screen (less letterbox)
+const H = 1000; // tall portrait room: fills a phone screen while leaving a comfortable control band
 const FLOOR_Y = 72; // sky-only non-playable band; ground starts right below it
 const DOOR_X = W - 74;
 const STAGE_GATE_R = 31;
@@ -74,7 +74,7 @@ const TRAINING_GATE_R = 21;
 const UTILITY_GATE_GAP = 54;
 const SPEED = 205; // base move speed (scaled up by your IQ — smart = nimble)
 const PY_MIN = 142; // feet stay on ground while the sky remains scenic only
-const PY_MAX = 1042;
+const PY_MAX = 982;
 const SOCIAL_Y_MIN = PY_MIN + 48;
 const FAMILY_Y_MAX = PY_MAX - 24;
 const ZONE_GATE_GAP = 48;

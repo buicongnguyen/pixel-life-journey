@@ -123,7 +123,7 @@ export function createUI(mount: HTMLElement): UIRefs {
   // at a fraction of the fill cost (a 4× buffer made the bigger room lag).
   const SS = 2;
   canvas.width = 640 * SS;
-  canvas.height = 1060 * SS;
+  canvas.height = 1000 * SS;
   const ctx = canvas.getContext("2d")!;
   ctx.scale(SS, SS);
   ctx.imageSmoothingEnabled = true;
