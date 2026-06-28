@@ -1802,7 +1802,7 @@ body {
     overscroll-behavior: none;
   }
   #app {
-    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+    padding: env(safe-area-inset-top) 0 0;
     height: 100dvh;
     align-items: stretch;
   }
@@ -1831,9 +1831,16 @@ body {
     object-fit: contain;
     object-position: center top;
   }
-  /* lift the d-pad + tray clear of the home bar / browser UI so they stay tappable */
+  /* the d-pad + tray FLOAT fixed to the screen, so they stay put even if the
+     page scrolls and always clear the home bar / browser UI */
   .plj-touch {
-    bottom: 14px;
+    position: fixed;
+    left: 50%;
+    right: auto;
+    width: 100%;
+    max-width: 640px;
+    transform: translateX(-50%);
+    bottom: calc(14px + env(safe-area-inset-bottom));
   }
   /* trim the HUD so the play area gets the room */
   .plj-hud-top {
