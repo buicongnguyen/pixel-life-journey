@@ -722,13 +722,11 @@ export class Game {
     }
     this.cooldown = 0.28;
     this.markGuideSeen();
-    if (st.kind === "person") {
-      const before = { health: this.stats.health, happiness: this.stats.happiness, fun: this.stats.fun, smarts: this.stats.smarts, money: this.money };
-      this.applyOption(opt);
-      this.showPersonSky(opt, before);
-    } else {
-      this.applyOption(opt);
-    }
+    // any pressed action — meeting a person OR collecting an item — reports its
+    // outcome in the sky (text + point change), never a separate resizing bar
+    const before = { health: this.stats.health, happiness: this.stats.happiness, fun: this.stats.fun, smarts: this.stats.smarts, money: this.money };
+    this.applyOption(opt);
+    if (this.mode === "playing") this.showOptionSky(opt, before);
   }
 
   /**
@@ -1675,7 +1673,7 @@ export class Game {
   }
 
   /** After interacting with a person, announce who + the point change in the sky. */
-  private showPersonSky(opt: LifeOption, before: { health: number; happiness: number; fun: number; smarts: number; money: number }): void {
+  private showOptionSky(opt: LifeOption, before: { health: number; happiness: number; fun: number; smarts: number; money: number }, overrideText?: string): void {
     const parts: string[] = [];
     const add = (now: number, was: number, icon: string): void => {
       const d = Math.round(now - was);
@@ -1690,7 +1688,7 @@ export class Game {
     const desc = (opt.desc || opt.label || "Nice to see you.").trim();
     const good = this.stats.happiness - before.happiness + (this.stats.health - before.health) >= 0;
     this.skyMessage = {
-      text: `${opt.icon} ${desc}`,
+      text: overrideText || `${opt.icon} ${desc}`,
       sub: parts.join("   "),
       color: good ? "#bdf0c6" : "#ffb3c0",
       timer: 3.2,
