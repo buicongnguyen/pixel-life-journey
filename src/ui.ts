@@ -31,6 +31,8 @@ export interface UIRefs {
   touch: { act: HTMLElement };
   stick: HTMLElement;
   stickKnob: HTMLElement;
+  inventoryWrap: HTMLElement;
+  inventoryTrack: HTMLElement;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -153,9 +155,15 @@ export function createUI(mount: HTMLElement): UIRefs {
   const stickKnob = el("div", "plj-stick-knob");
   const stickHint = el("span", "plj-stick-hint", "move");
   stick.append(stickKnob, stickHint);
+  // the collection tray sits between the stick and the act button — a word-free
+  // strip of collected items (all its guidance goes up to the sky banner)
+  const inventoryWrap = el("div", "plj-inventory");
+  inventoryWrap.title = "Swipe left/right to select. Swipe up to eat food, or near a person to give.";
+  const inventoryTrack = el("div", "plj-inventory-track");
+  inventoryWrap.append(inventoryTrack);
   const act = el("button", "plj-act", "<span class='plj-collect-ic'>🤝</span><span class='plj-collect-lbl'>Collect</span>");
   act.title = "Collect / interact (or press SPACE)";
-  touchWrap.append(stick, act);
+  touchWrap.append(stick, inventoryWrap, act);
   // the touch controls live INSIDE the stage so they overlay the canvas (thumbs
   // on the game), keeping everything on one mobile screen with no page scroll
   stage.append(touchWrap);
@@ -189,5 +197,7 @@ export function createUI(mount: HTMLElement): UIRefs {
     touch: { act },
     stick,
     stickKnob,
+    inventoryWrap,
+    inventoryTrack,
   };
 }

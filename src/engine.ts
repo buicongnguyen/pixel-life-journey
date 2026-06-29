@@ -74,6 +74,10 @@ const BAD_SPEED = 34; // bad items drift TOWARD you (auto-applied on contact)
 const ITEM_R = 26; // contact / collect radius
 const BLOCK_R = 30; // an NPC standing in the path blocks a bad item
 const SATIATE_TIME = 9; // seconds a bad item stays frozen/faded after you do its good counterpart
+const INVENTORY_MAX_SLOTS = 8;
+const INVENTORY_MAX_COUNT = 9;
+const FOOD_USE_COOLDOWN = 5;
+const FOOD_FRESH = 5; // collected food auto-eats this many seconds after pickup
 const CAREER_INDEX = STAGES.findIndex((s) => s.id === "career");
 /** Depth comparator for the render draw-list — reused so it isn't reallocated each frame. */
 const byDepth = (a: { y: number }, b: { y: number }): number => a.y - b.y;
@@ -112,6 +116,12 @@ interface Station {
   satiated: number;
 }
 
+interface InventorySlot {
+  opt: LifeOption;
+  count: number;
+  eatBy?: number; // seconds left before collected food auto-eats (food slots only)
+}
+
 /** A rewindable snapshot of the whole life, captured at each stage's start. */
 interface Snapshot {
   stageIndex: number;
@@ -141,6 +151,8 @@ interface Snapshot {
   owned: string[];
   jobsTaken: string[];
   usedEvents: string[];
+  inventory: InventorySlot[];
+  selectedInventory: number;
   bigFired: boolean;
   jackpotFired: boolean;
   petAdopted: boolean;
@@ -226,6 +238,10 @@ export class Game {
   private lineIndex: Record<string, number> = {};
   private floats: FloatText[] = [];
   private focusIndex = -1;
+  private inventory: InventorySlot[] = [];
+  private selectedInventory = 0;
+  private foodCooldown = 0;
+  private trayTipShown = false; // the "collect items" guidance shows in the sky once per life, not in the tray
 
   private px = 46;
   private py = 450;
@@ -386,9 +402,14 @@ export class Game {
     this.smartsSum = 0;
     this.healthCount = 0;
     this.floats = [];
+    this.inventory = [];
+    this.selectedInventory = 0;
+    this.foodCooldown = 0;
+    this.trayTipShown = false;
     this.skyMessage = null;
     this.story = null;
     this.sampleHealth();
+    this.renderInventory();
     this.loadStage(0);
   }
 
@@ -450,6 +471,8 @@ export class Game {
       geneBonus: this.geneBonus,
       owned: [...this.owned],
       jobsTaken: [...this.jobsTaken],
+      inventory: this.inventory.map((slot) => ({ opt: slot.opt, count: slot.count, eatBy: slot.eatBy })),
+      selectedInventory: this.selectedInventory,
       bigFired: this.bigFired,
       jackpotFired: this.jackpotFired,
       petAdopted: this.petAdopted,
@@ -698,6 +721,7 @@ export class Game {
 
     const st = this.stations[this.focusIndex];
     if (st.kind === "bad") return; // bad things aren't pressed — they catch you
+    if (this.isCommonCollectible(st)) return; // food collects on contact into the tray — never pressed
     const opt = st.opt;
     if (opt.once && this.usedOnce.has(opt.id)) {
       this.hint("You already did that this chapter.");
@@ -1264,6 +1288,8 @@ export class Game {
     this.petAdopted = snap.petAdopted;
     this.usedEvents = new Set(snap.usedEvents);
     this.eventsLog = [...snap.eventsLog];
+    this.inventory = (snap.inventory ?? []).map((slot) => ({ opt: slot.opt, count: slot.count, eatBy: slot.eatBy }));
+    this.selectedInventory = Math.max(0, Math.min(snap.selectedInventory ?? 0, this.inventory.length - 1));
     this.eventCooldown = 2;
     this.healthSum = snap.healthSum;
     this.happinessSum = snap.happinessSum;
@@ -1276,6 +1302,7 @@ export class Game {
     this.history = this.history.slice(0, snap.historyLen);
     this.floats = [];
     this.skyMessage = null;
+    this.renderInventory();
     this.clearOverlay();
     this.loadStage(stageIndex, true); // restoring: don't re-sample/re-snapshot the entry
     this.hint(`⏳ You travelled back to age ${Math.floor(this.age)}.`);
@@ -1298,6 +1325,13 @@ export class Game {
 
   private update(dt: number): void {
     if (this.cooldown > 0) this.cooldown -= dt;
+    if (this.foodCooldown > 0) this.foodCooldown = Math.max(0, this.foodCooldown - dt);
+    if (this.mode === "playing") this.tickFoodFreshness(dt);
+    if (this.mode === "playing" && !this.trayTipShown && this.inventory.length === 0) {
+      // first playing moment with an empty tray: nudge once — in the sky, not the tray
+      this.showSkyTip("🧺 Collect green items — swipe up to eat, or stand by someone to give");
+      this.trayTipShown = true;
+    }
     if (this.hintTimer > 0) {
       this.hintTimer -= dt;
       if (this.hintTimer <= 0) this.ui.hint.textContent = "";
@@ -1360,6 +1394,7 @@ export class Game {
     // items move (good flee, bad chase, people block) and any un-satiated bad
     // thing that catches you applies automatically
     this.moveStations(dt);
+    this.checkCommonItemContacts();
     this.checkBadContacts();
     if (this.mode !== "playing") return;
 
@@ -1394,6 +1429,7 @@ export class Game {
     let bestD = 999;
     this.stations.forEach((st, i) => {
       if (st.kind === "bad") return;
+      if (this.isCommonCollectible(st)) return;
       const dx = Math.abs(this.px - st.x);
       const dy = Math.abs(this.py - st.y);
       if (dx < 38 && dy < 42 && dx + dy < bestD) {
@@ -1404,6 +1440,7 @@ export class Game {
     if (best !== this.focusIndex) {
       this.focusIndex = best;
       this.renderFocusPanel();
+      this.renderInventory();
     }
   }
 
@@ -1464,6 +1501,261 @@ export class Game {
       st.y = PY_MIN + Math.random() * (PY_MAX - PY_MIN);
       if (!this.people.some((p) => Math.hypot(st.x - p.x, st.y - p.y) < BLOCK_R)) break;
     }
+  }
+
+  // --- collection tray ------------------------------------------------------
+
+  /** Whether an option carries an age cost of its own, else the chapter's pace. */
+  private optionAgeCost(opt: LifeOption): number {
+    return opt.ageCost ?? this.stageStep();
+  }
+
+  /** Family people / family-flavoured moments — used for the give-reaction warmth. */
+  private isFamilyOption(opt: LifeOption): boolean {
+    const familyPeople: PersonKind[] = ["mother", "father", "grandma", "grandpa", "sibling", "spouse", "child", "grandkid"];
+    if (opt.person && familyPeople.includes(opt.person)) return true;
+    const tag = opt.storyTag ?? "";
+    return tag === "family" || tag === "family_love" || tag === "grandkids" || opt.id === "baby";
+  }
+
+  /** Collectible food: a free, repeatable food choice picked up by walking over it. */
+  private isCommonCollectible(st: Station): boolean {
+    const opt = st.opt;
+    return st.kind === "good" &&
+      opt.category === "food" &&
+      !opt.person &&
+      !opt.once &&
+      !opt.permanent &&
+      !opt.cost &&
+      !opt.opensHousePicker &&
+      !opt.opensVehiclePicker &&
+      !opt.opensCareerDesk &&
+      !opt.gamble &&
+      !opt.invest &&
+      !opt.moneyMgmt;
+  }
+
+  private addInventoryItem(opt: LifeOption): void {
+    const existing = this.inventory.find((slot) => slot.opt.id === opt.id);
+    const fresh = opt.category === "food" ? FOOD_FRESH : undefined;
+    if (existing) {
+      existing.count = Math.min(INVENTORY_MAX_COUNT, existing.count + 1);
+      if (fresh !== undefined) existing.eatBy = fresh; // refresh the freshness window
+      this.selectedInventory = this.inventory.indexOf(existing);
+    } else {
+      if (this.inventory.length >= INVENTORY_MAX_SLOTS) {
+        this.inventory.shift();
+        this.selectedInventory = Math.max(0, this.selectedInventory - 1);
+      }
+      this.inventory.push({ opt, count: 1, eatBy: fresh });
+      this.selectedInventory = this.inventory.length - 1;
+    }
+    this.renderInventory();
+  }
+
+  private setInventorySelection(index: number, announce = true): void {
+    if (this.inventory.length === 0) {
+      this.selectedInventory = 0;
+      this.renderInventory();
+      if (announce) this.showSkyTip("🧺 Collect green items first — walk over them to pick up");
+      return;
+    }
+    const len = this.inventory.length;
+    this.selectedInventory = ((index % len) + len) % len;
+    this.renderInventory();
+    if (announce) {
+      const slot = this.inventory[this.selectedInventory];
+      const useText = slot.opt.category === "food" ? "swipe up to eat, or stand by someone to give" : "stand by someone and swipe up to give";
+      this.showSkyTip(`${slot.opt.icon} ${slot.opt.label} ready — ${useText}`);
+    }
+  }
+
+  private stepInventorySelection(delta: number): void {
+    this.setInventorySelection(this.selectedInventory + delta);
+  }
+
+  private consumeSelectedInventoryItem(): void {
+    const slot = this.inventory[this.selectedInventory];
+    if (!slot) return;
+    slot.count -= 1;
+    if (slot.count <= 0) {
+      this.inventory.splice(this.selectedInventory, 1);
+      this.selectedInventory = Math.max(0, Math.min(this.selectedInventory, this.inventory.length - 1));
+    }
+  }
+
+  private eatSelectedFoodItem(slot: InventorySlot): void {
+    if (slot.opt.category !== "food") {
+      this.showSkyTip(`${slot.opt.icon} stand close to a person, then swipe up to give it`);
+      return;
+    }
+    if (this.foodCooldown > 0) {
+      this.showSkyTip(`😋 Still full — eat again in ${Math.ceil(this.foodCooldown)}s`);
+      return;
+    }
+
+    const opt = slot.opt;
+    this.cooldown = 0.22;
+    this.foodCooldown = FOOD_USE_COOLDOWN;
+    this.markGuideSeen();
+    const before = { health: this.stats.health, happiness: this.stats.happiness, fun: this.stats.fun, smarts: this.stats.smarts, money: this.money };
+    this.consumeSelectedInventoryItem();
+    this.applyOption(opt);
+    this.floats.push({ x: this.px, y: this.py - 86, text: `${opt.icon} eaten`, color: "#9fe870", life: 1.25 });
+    if (this.mode !== "playing") return;
+    this.showOptionSky(opt, before);
+    this.renderFocusPanel();
+    this.renderInventory();
+  }
+
+  /** Auto-eat the food at `index` (its freshness ran out) — like eating it, but no
+   *  cooldown/selection needed; consumes one unit. */
+  private autoEatFood(index: number): void {
+    const slot = this.inventory[index];
+    if (!slot || slot.opt.category !== "food") return;
+    const opt = slot.opt;
+    const before = { health: this.stats.health, happiness: this.stats.happiness, fun: this.stats.fun, smarts: this.stats.smarts, money: this.money };
+    slot.count -= 1;
+    if (slot.count <= 0) {
+      this.inventory.splice(index, 1);
+      this.selectedInventory = Math.max(0, Math.min(this.selectedInventory, this.inventory.length - 1));
+    } else {
+      slot.eatBy = FOOD_FRESH; // the next unit gets its own fresh window
+    }
+    this.applyOption(opt);
+    this.floats.push({ x: this.px, y: this.py - 86, text: `${opt.icon} eaten`, color: "#9fe870", life: 1.25 });
+    if (this.mode !== "playing") return;
+    this.showOptionSky(opt, before);
+    this.renderFocusPanel();
+    this.renderInventory();
+  }
+
+  /** Collected food must be eaten within FOOD_FRESH seconds — or it auto-eats. */
+  private tickFoodFreshness(dt: number): void {
+    let needsRender = false;
+    for (let i = this.inventory.length - 1; i >= 0; i--) {
+      const slot = this.inventory[i];
+      if (slot.opt.category !== "food" || slot.eatBy === undefined) continue;
+      const was = Math.ceil(slot.eatBy);
+      slot.eatBy -= dt;
+      if (slot.eatBy <= 0) {
+        this.autoEatFood(i); // already re-renders + may end the life / open an overlay
+        if (this.mode !== "playing") return;
+        needsRender = false;
+      } else if (Math.ceil(slot.eatBy) !== was) {
+        needsRender = true; // the countdown ticked down a second — refresh its badge
+      }
+    }
+    if (needsRender) this.renderInventory();
+  }
+
+  /** The nearest person you can give a held item to (focused person, else within reach). */
+  private personUseTarget(): Station | null {
+    const focused = this.stations[this.focusIndex];
+    if (focused?.kind === "person") return focused;
+    let best: Station | null = null;
+    let bestD = 999;
+    for (const st of this.people) {
+      const d = Math.hypot(this.px - st.x, this.py - st.y);
+      if (d < 56 && d < bestD) {
+        best = st;
+        bestD = d;
+      }
+    }
+    return best;
+  }
+
+  private inventoryReactionEffects(item: LifeOption, person: LifeOption): Partial<Stats> {
+    const effects: Partial<Stats> = { happiness: this.isFamilyOption(person) ? 4 : 3 };
+    if (item.treat) { effects.happiness = (effects.happiness ?? 0) + 2; effects.fun = 4; } // everyone loves a shared treat
+    else if (item.category === "fun") effects.fun = 3;
+    else if (item.category === "food") effects.health = 1;
+    else if (item.category === "health") effects.health = 2;
+    else if (item.category === "rest") effects.health = 1;
+    else if (item.category === "smarts") effects.smarts = 1;
+    else if (item.category === "social") effects.happiness = (effects.happiness ?? 0) + 2;
+    return effects;
+  }
+
+  private useSelectedInventoryItem(): void {
+    if (this.mode !== "playing" || this.cooldown > 0) return;
+    const slot = this.inventory[this.selectedInventory];
+    if (!slot) {
+      this.showSkyTip("🧺 Collect green items first — walk over them to pick up");
+      return;
+    }
+    const person = this.personUseTarget();
+    if (!person) {
+      this.eatSelectedFoodItem(slot);
+      return;
+    }
+
+    if (person.contactCd > 0) return; // one gift per person per ~0.9s — no time-free farming
+    this.cooldown = 0.22;
+    person.contactCd = 0.9;
+    this.markGuideSeen();
+    const before = { health: this.stats.health, happiness: this.stats.happiness, fun: this.stats.fun, smarts: this.stats.smarts, money: this.money };
+    const effects = this.inventoryReactionEffects(slot.opt, person.opt);
+    this.applyEff(effects, "mental");
+    this.connections += this.isFamilyOption(person.opt) ? 1 : 3;
+    this.consumeSelectedInventoryItem();
+    this.floats.push({ x: person.x, y: person.y - 92, text: `${slot.opt.icon} + ${person.opt.icon}`, color: "#ffd23f", life: 1.35 });
+    this.spawnFloats(effects);
+    this.showOptionSky(person.opt, before, `${person.opt.icon} ${person.opt.label} liked your ${slot.opt.icon} ${slot.opt.label}`);
+    // a gift costs a turn of life like any other action — closes the no-time-cost stat/bond farm
+    this.age += this.optionAgeCost(slot.opt);
+    this.passiveTick();
+    this.sampleHealth();
+    if (this.mode !== "playing") return;
+    this.renderFocusPanel();
+    this.renderInventory();
+  }
+
+  /** Common food items collect by touch, then reappear elsewhere on the floor. */
+  private checkCommonItemContacts(): void {
+    if (this.cooldown > 0) return;
+    for (const st of this.stations) {
+      if (!this.isCommonCollectible(st) || st.contactCd > 0) continue;
+      if (Math.hypot(this.px - st.x, this.py - st.y) > ITEM_R + 6) continue;
+      st.contactCd = 0.45;
+      this.cooldown = 0.1;
+      this.markGuideSeen();
+      this.addInventoryItem(st.opt);
+      if (st.opt.category === "food") {
+        this.floats.push({ x: st.x, y: st.y - 52, text: `${st.opt.icon} stored`, color: "#9fe870", life: 1.1 });
+        this.skyMessage = {
+          text: `${st.opt.icon} ${this.cycledLine(st.opt)}`,
+          sub: "📦 stored · swipe ↑ to eat or give",
+          color: "#bfe0ff",
+          timer: 3,
+        };
+      } else {
+        const before = { health: this.stats.health, happiness: this.stats.happiness, fun: this.stats.fun, smarts: this.stats.smarts, money: this.money };
+        this.applyOption(st.opt);
+        if (this.mode !== "playing") return;
+        this.showOptionSky(st.opt, before);
+      }
+      this.respawnCommonItem(st);
+      this.focusIndex = -1;
+      this.renderFocusPanel();
+      return;
+    }
+  }
+
+  /** Move a collected common item to a new far-enough place on the floor. */
+  private respawnCommonItem(st: Station): void {
+    const spawnLeft = this.px > W / 2;
+    for (let tries = 0; tries < 12; tries++) {
+      const x = spawnLeft ? 88 + Math.random() * 140 : W - 230 + Math.random() * 140;
+      const y = PY_MIN + Math.random() * (PY_MAX - PY_MIN);
+      if (Math.hypot(x - this.px, y - this.py) < 120) continue;
+      if (this.stations.some((other) => other !== st && Math.hypot(x - other.x, y - other.y) < 54)) continue;
+      st.x = x;
+      st.y = y;
+      return;
+    }
+    st.x = spawnLeft ? 120 : W - 170;
+    st.y = Math.max(PY_MIN, Math.min(PY_MAX, this.py + (this.py < (PY_MIN + PY_MAX) / 2 ? 120 : -120)));
   }
 
   // --- rendering ------------------------------------------------------------
@@ -1728,9 +2020,38 @@ export class Game {
       `<span class="plj-chips">${effectChips(opt.effects)}${extra.join("")}${press}</span>`;
   }
 
+  private renderInventory(): void {
+    const wrap = this.ui.inventoryWrap;
+    const track = this.ui.inventoryTrack;
+    const selected = this.inventory[this.selectedInventory];
+    const usable = this.mode === "playing" && this.inventory.length > 0 && (!!this.personUseTarget() || selected?.opt.category === "food");
+    wrap.classList.toggle("is-empty", this.inventory.length === 0);
+    wrap.classList.toggle("can-use", usable);
+    if (this.inventory.length === 0) {
+      // the collection area itself stays text-free — a faint basket cue only; all
+      // its guidance goes up to the sky (one-time tip lives in update), never the tray
+      track.innerHTML = `<span class="plj-inventory-empty" aria-hidden="true">🧺</span>`;
+      return;
+    }
+    track.innerHTML = this.inventory.map((slot, i) => {
+      const selected = i === this.selectedInventory ? " is-selected" : "";
+      const count = slot.count > 1 ? `<span class="plj-inv-count">${slot.count}</span>` : "";
+      const timer = slot.opt.category === "food" && slot.eatBy !== undefined
+        ? `<span class="plj-inv-timer${slot.eatBy <= 2 ? " is-low" : ""}">${Math.max(0, Math.ceil(slot.eatBy))}</span>`
+        : "";
+      return `<button class="plj-inv-item${selected}" data-inv-index="${i}" title="${esc(slot.opt.label)}"><span class="plj-inv-emoji">${esc(slot.opt.icon)}</span>${count}${timer}</button>`;
+    }).join("");
+  }
+
   private hint(text: string): void {
     this.ui.hint.textContent = text;
     this.hintTimer = 1.6;
+  }
+
+  /** Show a short guidance line in the sky banner (no stat deltas) — used so the
+   *  collection tray carries no text of its own; all its prompts go up to the sky. */
+  private showSkyTip(text: string, color = "#cfe3ff"): void {
+    this.skyMessage = { text, sub: "", color, timer: 2.6 };
   }
 
   /** After interacting with a person, announce who + the point change in the sky. */
@@ -2583,6 +2904,56 @@ export class Game {
       if (this.joyPointerId !== null) releaseStick();
     });
     stick.addEventListener("contextmenu", (e) => e.preventDefault());
+
+    // --- collection tray: swipe left/right to select, up to use; wheel to step,
+    // double-click an item to use it now (give to a nearby person, else eat) ---
+    let inventoryDrag: { x: number; y: number; index: number | null; pointerId: number } | null = null;
+    const inventoryIndexFrom = (target: EventTarget | null): number | null => {
+      const item = target instanceof HTMLElement ? target.closest<HTMLElement>("[data-inv-index]") : null;
+      if (!item?.dataset.invIndex) return null;
+      const index = Number(item.dataset.invIndex);
+      return Number.isFinite(index) ? index : null;
+    };
+    this.ui.inventoryWrap.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      inventoryDrag = { x: e.clientX, y: e.clientY, index: inventoryIndexFrom(e.target), pointerId: e.pointerId };
+      this.ui.inventoryWrap.setPointerCapture?.(e.pointerId);
+    });
+    this.ui.inventoryWrap.addEventListener("pointerup", (e) => {
+      e.preventDefault();
+      if (!inventoryDrag || inventoryDrag.pointerId !== e.pointerId) return;
+      const dx = e.clientX - inventoryDrag.x;
+      const dy = e.clientY - inventoryDrag.y;
+      const index = inventoryIndexFrom(e.target) ?? inventoryDrag.index;
+      inventoryDrag = null;
+      if (dy < -28 && Math.abs(dy) > Math.abs(dx) * 0.7) {
+        this.useSelectedInventoryItem();
+      } else if (dx < -24) {
+        this.stepInventorySelection(1);
+      } else if (dx > 24) {
+        this.stepInventorySelection(-1);
+      } else if (index !== null) {
+        this.setInventorySelection(index);
+      }
+    });
+    this.ui.inventoryWrap.addEventListener("pointercancel", () => {
+      inventoryDrag = null;
+    });
+    this.ui.inventoryWrap.addEventListener("wheel", (e) => {
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (Math.abs(delta) < 10) return;
+      e.preventDefault();
+      this.stepInventorySelection(delta > 0 ? 1 : -1);
+    });
+    // double-click an item → use it now: give to a nearby person, else eat (if food)
+    this.ui.inventoryWrap.addEventListener("dblclick", (e) => {
+      e.preventDefault();
+      const index = inventoryIndexFrom(e.target);
+      if (index === null) return;
+      this.setInventorySelection(index, false);
+      this.useSelectedInventoryItem();
+    });
+
     this.ui.touch.act.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       this.actQueued = true;
