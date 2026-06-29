@@ -61,14 +61,14 @@ import { generateStory, type CauseOfEnd, type LifeStory } from "./story";
 import { linePool } from "./messages";
 
 const W = 640;
-const H = 800; // a tall room with only a thin wall strip — almost all play floor
+const H = 1000; // a tall room with only a thin wall strip — almost all play floor
 const FLOOR_Y = 160; // less wall, much more floor to run and dodge in
 const DOOR_X = W - 74;
 const SPEED = 205; // base move speed (scaled up by your IQ — smart = nimble)
 const ROW_BACK = 255;
-const ROW_FRONT = 752;
+const ROW_FRONT = 952;
 const PY_MIN = 210;
-const PY_MAX = 782;
+const PY_MAX = 982;
 // --- moving-items mechanic ---
 const GOOD_SPEED = 24; // good items drift AWAY (chase them + press to collect)
 const BAD_SPEED = 34; // bad items drift TOWARD you (auto-applied on contact)
